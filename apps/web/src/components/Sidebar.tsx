@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 import type { RouteName } from '../lib/router.ts';
 import { Icon, type IconName } from './Icon.tsx';
 import { Logo } from './Logo.tsx';

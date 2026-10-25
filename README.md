@@ -81,7 +81,7 @@ Then in **Settings → Model provider**:
 ```
 open-creator-ai/
 ├── apps/
-│   ├── web/          # React 18 + Vite + TypeScript studio
+│   ├── web/          # React 19 + Vite + TypeScript studio
 │   └── daemon/       # Node.js runtime — HTTP API, JSON store, agent endpoint
 ├── packages/
 │   └── shared/       # Types, tool catalogue, offline planner, API client
@@ -92,7 +92,7 @@ open-creator-ai/
 
 | Package           | Stack                                          | Responsibility                                                               |
 | ----------------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| `apps/web`        | React 18, Vite 5, TypeScript, hand-written CSS | The studio UI — dashboard, tool catalogue, agent, projects, settings         |
+| `apps/web`        | React 19, Vite 8, TypeScript, hand-written CSS | The studio UI — dashboard, tool catalogue, agent, projects, settings         |
 | `apps/daemon`     | Node.js 22 (`node:http`, `node:fs`)            | Projects, runs, settings, agent endpoint, static hosting of the built studio |
 | `packages/shared` | TypeScript                                     | Domain types, tool catalogue, offline planner, reusable API client           |
 

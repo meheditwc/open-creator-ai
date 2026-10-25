@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { useApp } from '../state/AppState.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { useTheme } from '../hooks/useTheme.ts';

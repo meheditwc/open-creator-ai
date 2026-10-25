@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 import { Icon, type IconName } from './Icon.tsx';
 
 export function EmptyState({

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { useApp } from '../state/AppState.tsx';
 import { Markdown } from '../lib/markdown.tsx';
 import { Icon } from '../components/Icon.tsx';

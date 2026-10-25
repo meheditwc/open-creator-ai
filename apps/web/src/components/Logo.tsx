@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 export function Logo({ size = 38 }: { size?: number }): JSX.Element {
   return (
     <div className="brand__mark" style={{ width: size, height: size, borderRadius: size * 0.32 }}>

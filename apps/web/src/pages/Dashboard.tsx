@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type JSX } from 'react';
 import type { RouteName } from '../lib/router.ts';
 import { useApp } from '../state/AppState.tsx';
 import { StatCard } from '../components/StatCard.tsx';

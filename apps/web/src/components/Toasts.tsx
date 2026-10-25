@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 import { useApp } from '../state/AppState.tsx';
 
 const TONE_COLORS: Record<string, string> = {

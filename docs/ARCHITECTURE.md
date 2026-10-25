@@ -40,7 +40,7 @@ flowchart TB
 
 ### `apps/web` — the studio
 
-React 18 + Vite 5 + TypeScript. No CSS framework: the whole design system lives in
+React 19 + Vite 8 + TypeScript. No CSS framework: the whole design system lives in
 `apps/web/src/styles/global.css` as custom properties plus a small set of component
 classes, which keeps the bundle tiny and the rendering identical everywhere.
 

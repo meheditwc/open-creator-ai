@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type JSX,
   type ReactNode,
 } from 'react';
 import { TOOLS, localAgentReply } from '@open-creator/shared';

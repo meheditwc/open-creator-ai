@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 import { Icon } from './Icon.tsx';
 import { useTheme } from '../hooks/useTheme.ts';
 
