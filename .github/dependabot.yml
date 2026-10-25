@@ -6,6 +6,10 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      # React and its types must always move together: bumping react-dom without
+      # react leaves two React copies in the tree and the studio fails to render.
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
       web-dependencies:
         patterns: ['*']
         update-types: [minor, patch]
