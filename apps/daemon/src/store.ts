@@ -12,6 +12,8 @@ import { dirname, join } from 'node:path';
 export class JsonStore<T extends { id: string }> {
   private cache: Map<string, T> | null = null;
   private writing: Promise<void> = Promise.resolve();
+  /** Single-flight guard so concurrent callers share one read. */
+  private loading: Promise<void> | null = null;
 
   private readonly file: string;
   private readonly defaults: () => T[];
@@ -27,14 +29,24 @@ export class JsonStore<T extends { id: string }> {
 
   async load(): Promise<void> {
     if (this.cache) return;
+    this.loading ??= this.read();
+    await this.loading;
+  }
+
+  private async read(): Promise<void> {
     try {
       const raw = await readFile(this.path, 'utf8');
       const parsed = JSON.parse(raw) as T[];
+      if (!Array.isArray(parsed)) throw new Error('expected a JSON array');
       this.cache = new Map(parsed.map((item) => [item.id, item]));
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'ENOENT') {
-        console.warn(`[store] could not read ${this.path}, starting empty`);
+        // Never silently overwrite a file we could not parse: move it aside so
+        // the data can still be recovered by hand.
+        const backup = `${this.path}.corrupt-${Date.now()}`;
+        await rename(this.path, backup).catch(() => undefined);
+        console.warn(`[store] could not read ${this.path} — moved it to ${backup}`);
       }
       this.cache = new Map(this.defaults().map((item) => [item.id, item]));
     }
@@ -84,6 +96,8 @@ export class JsonStore<T extends { id: string }> {
 /** Settings are stored as a single JSON document rather than a collection. */
 export class SettingsStore<S extends object> {
   private cache: S | null = null;
+  /** Single-flight guard so concurrent callers share one read. */
+  private loading: Promise<S> | null = null;
 
   private readonly file: string;
   private readonly defaults: () => S;
@@ -95,10 +109,20 @@ export class SettingsStore<S extends object> {
 
   async get(): Promise<S> {
     if (this.cache) return this.cache;
+    this.loading ??= this.read();
+    return this.loading;
+  }
+
+  private async read(): Promise<S> {
     try {
       const raw = await readFile(this.file, 'utf8');
       this.cache = { ...this.defaults(), ...(JSON.parse(raw) as Partial<S>) };
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        const backup = `${this.file}.corrupt-${Date.now()}`;
+        await rename(this.file, backup).catch(() => undefined);
+        console.warn(`[store] could not read ${this.file} — moved it to ${backup}`);
+      }
       this.cache = this.defaults();
     }
     return this.cache;

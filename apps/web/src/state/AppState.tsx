@@ -63,6 +63,17 @@ const DEFAULT_SETTINGS: AppSettings = {
   autosave: true,
 };
 
+/** Keep the offline cache in step with every mutation, not just creation. */
+function persistProjects(projects: Project[]): Project[] {
+  localStore.saveProjects(projects);
+  return projects;
+}
+
+function persistRuns(runs: Run[]): Run[] {
+  localStore.saveRuns(runs);
+  return runs;
+}
+
 export function AppProvider({ children }: { children: ReactNode }): JSX.Element {
   const [ready, setReady] = useState(false);
   const [daemonOnline, setDaemonOnline] = useState(false);
@@ -128,8 +139,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       try {
         if (daemonOnline) {
           const project = await api.createProject(input);
-          setProjects((current) => [project, ...current]);
-          localStore.saveProjects([project, ...projects]);
+          setProjects((current) => persistProjects([project, ...current]));
         } else {
           const now = new Date().toISOString();
           const project: Project = {
@@ -140,16 +150,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
             createdAt: now,
             updatedAt: now,
           };
-          const next = [project, ...projects];
-          setProjects(next);
-          localStore.saveProjects(next);
+          setProjects((current) => persistProjects([project, ...current]));
         }
         notify(`Project “${input.name}” created`, 'success');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'Could not create project', 'error');
       }
     },
-    [daemonOnline, notify, projects],
+    [daemonOnline, notify],
   );
 
   const updateProject = useCallback(
@@ -158,14 +166,16 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
         if (daemonOnline) {
           const updated = await api.updateProject(id, patch);
           setProjects((current) =>
-            current.map((project) => (project.id === id ? updated : project)),
+            persistProjects(current.map((project) => (project.id === id ? updated : project))),
           );
         } else {
           setProjects((current) =>
-            current.map((project) =>
-              project.id === id
-                ? { ...project, ...patch, updatedAt: new Date().toISOString() }
-                : project,
+            persistProjects(
+              current.map((project) =>
+                project.id === id
+                  ? { ...project, ...patch, updatedAt: new Date().toISOString() }
+                  : project,
+              ),
             ),
           );
         }
@@ -180,8 +190,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     async (id: string) => {
       try {
         if (daemonOnline) await api.deleteProject(id);
-        setProjects((current) => current.filter((project) => project.id !== id));
-        setRuns((current) => current.filter((run) => run.projectId !== id));
+        setProjects((current) => persistProjects(current.filter((project) => project.id !== id)));
+        setRuns((current) => persistRuns(current.filter((run) => run.projectId !== id)));
         notify('Project deleted', 'success');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'Could not delete project', 'error');
@@ -195,7 +205,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       try {
         if (daemonOnline) {
           const run = await api.createRun(input);
-          setRuns((current) => [run, ...current]);
+          setRuns((current) => persistRuns([run, ...current]));
         } else {
           const now = new Date().toISOString();
           const run: Run = {
@@ -209,7 +219,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
             createdAt: now,
             updatedAt: now,
           };
-          setRuns((current) => [run, ...current]);
+          setRuns((current) => persistRuns([run, ...current]));
         }
         notify(`Run queued for ${input.tool}`, 'success');
       } catch (error) {

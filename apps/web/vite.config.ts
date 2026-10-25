@@ -9,6 +9,10 @@ const allowedHosts = (process.env.OPENCREATOR_ALLOWED_HOSTS ?? '')
   .map((host) => host.trim())
   .filter(Boolean);
 
+// `*` allows any hostname — handy in sandboxed preview environments where the
+// public hostname is dynamic. A leading dot (`".e2b.app"`) matches subdomains.
+const allowAnyHost = allowedHosts.includes('*');
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -24,7 +28,11 @@ export default defineConfig({
     host: true,
     // Extra hostnames the dev server should answer to (e.g. a preview domain).
     // Empty means Vite's default localhost-only policy.
-    ...(allowedHosts.length ? { allowedHosts } : {}),
+    ...(allowAnyHost
+      ? { allowedHosts: true as const }
+      : allowedHosts.length
+        ? { allowedHosts }
+        : {}),
     proxy: {
       '/api': {
         target: DAEMON_URL,

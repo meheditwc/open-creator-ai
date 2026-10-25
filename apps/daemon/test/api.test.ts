@@ -114,3 +114,73 @@ test('the agent answers with the offline planner when no provider is configured'
     assert.ok(response.suggestions && response.suggestions.length > 0);
   });
 });
+
+async function waitFor(predicate: () => boolean, timeoutMs = 3000): Promise<void> {
+  const started = Date.now();
+  while (!predicate()) {
+    if (Date.now() - started > timeoutMs) throw new Error('timed out waiting for the condition');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+test('projects and runs survive a daemon restart', async () => {
+  const restartDir = join(tmpdir(), `open-creator-ai-restart-${Date.now()}`);
+  const restartConfig = { ...loadConfig(), port: 0, dataDir: restartDir, corsOrigins: ['*'] };
+
+  try {
+    const first = new Daemon(restartConfig);
+    const project = await first.createProject({ name: 'Survives restarts' });
+    const run = await first.createRun({ tool: 'short-script', projectId: project.id });
+    await waitFor(() => first.getRun(run.id)?.status === 'completed');
+
+    // A second instance on the same data directory is exactly what a restart
+    // does: the workspace must be read back from disk, not started empty.
+    const second = new Daemon(restartConfig);
+
+    const projects = (await second.listProjects()) as { items: { name: string }[]; total: number };
+    assert.equal(projects.total, 1);
+    assert.equal(projects.items[0].name, 'Survives restarts');
+
+    const runs = (await second.listRuns()) as { items: { status: string }[]; total: number };
+    assert.equal(runs.total, 1);
+    assert.equal(runs.items[0].status, 'completed');
+
+    const health = (await second.health()) as { projects: number; runs: number };
+    assert.equal(health.projects, 1);
+    assert.equal(health.runs, 1);
+  } finally {
+    await rm(restartDir, { recursive: true, force: true });
+  }
+});
+
+test('a run interrupted by a restart is reported as failed, not left running', async () => {
+  const interruptedDir = join(tmpdir(), `open-creator-ai-interrupted-${Date.now()}`);
+  const interruptedConfig = {
+    ...loadConfig(),
+    port: 0,
+    dataDir: interruptedDir,
+    corsOrigins: ['*'],
+  };
+
+  try {
+    const first = new Daemon(interruptedConfig);
+    const run = await first.createRun({ tool: 'video-translation' });
+
+    // Simulate the crash: a run left mid-flight on disk.
+    await first['runs'].put({ ...run, status: 'running', progress: 40 });
+    await first['runs'].put({ ...run, status: 'running', progress: 40 });
+
+    const second = new Daemon(interruptedConfig);
+    await waitFor(() => second.getRun(run.id)?.status === 'failed');
+    assert.equal(second.getRun(run.id)?.status, 'failed');
+    assert.match(second.getRun(run.id)?.message ?? '', /restart/i);
+  } finally {
+    await rm(interruptedDir, { recursive: true, force: true });
+  }
+});
+
+test('the reported version matches the package manifest', async () => {
+  const { version } = loadConfig();
+  assert.match(version, /^\d+\.\d+\.\d+/);
+  assert.notEqual(version, '0.2.0');
+});

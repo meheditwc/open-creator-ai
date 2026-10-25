@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Data loss on restart.** The daemon never read `projects.json` / `runs.json`
+  back at startup, so every restart showed an empty workspace and the next
+  write overwrote the stored projects and runs. The stores are now loaded
+  before the first request is served.
+- **Stuck runs.** A run that was mid-flight when the daemon stopped stayed
+  `queued`/`running` forever; it is now marked `failed` with an honest message.
+- **Silent overwrite of unreadable data.** A corrupt `projects.json`,
+  `runs.json` or `settings.json` is moved aside as `*.corrupt-<timestamp>`
+  instead of being replaced by an empty file.
+- **Stale version.** `/api/health` reported `0.2.0` while the project was
+  `0.3.0`; the daemon now reports the version from the package manifest.
+- **Offline cache drift.** Creating a project updated the `localStorage`
+  fallback but editing or deleting one did not, so the offline studio could
+  resurrect deleted projects. Every mutation now updates the cache.
+- **Unclear API errors.** Error responses now carry a stable `error` code
+  (`BadRequest`, `NotFound`, …) instead of the class name `HttpError`, and the
+  daemon explains an occupied port instead of crashing silently.
+
 ## [0.3.0] — 2026-10-25
 
 ### Changed

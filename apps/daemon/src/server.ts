@@ -43,6 +43,8 @@ export class Daemon {
   private readonly runs: JsonStore<Run>;
   private readonly settingsStore: SettingsStore<AppSettings>;
   private readonly startedAt = new Date();
+  /** Resolves once the persisted state is in memory (and repaired if needed). */
+  private readonly ready: Promise<void>;
 
   private readonly config: AppConfig;
 
@@ -63,6 +65,44 @@ export class Daemon {
       autosave: true,
     }));
     this.registerRoutes();
+    this.ready = this.bootstrap();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Startup                                                             */
+  /* ------------------------------------------------------------------ */
+
+  /** Read the persisted workspace and repair anything a crash left behind. */
+  private async bootstrap(): Promise<void> {
+    try {
+      await Promise.all([this.projects.load(), this.runs.load()]);
+      await this.recoverInterruptedRuns();
+    } catch (error) {
+      // Never block the API because of a stubborn data file — the daemon
+      // still serves requests, it just starts from an empty workspace.
+      logger.error(`could not restore the workspace: ${String(error)}`);
+    }
+  }
+
+  /**
+   * Runs are advanced by an in-process timer, so a restart leaves them stuck in
+   * `queued`/`running` forever. Report them honestly instead of lying.
+   */
+  private async recoverInterruptedRuns(): Promise<void> {
+    const interrupted = this.runs
+      .all()
+      .filter((run) => run.status === 'queued' || run.status === 'running');
+    if (interrupted.length === 0) return;
+    const now = new Date().toISOString();
+    for (const run of interrupted) {
+      await this.runs.put({
+        ...run,
+        status: 'failed',
+        message: 'Interrupted by a daemon restart — start the run again.',
+        updatedAt: now,
+      });
+    }
+    logger.warn(`${interrupted.length} interrupted run(s) marked as failed after a restart`);
   }
 
   /* ------------------------------------------------------------------ */
@@ -136,6 +176,7 @@ export class Daemon {
   }
 
   async listProjects(): Promise<{ items: Project[]; total: number }> {
+    await this.ready;
     const items = this.projects.all().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     return { items, total: items.length };
   }
@@ -182,6 +223,7 @@ export class Daemon {
   }
 
   async listRuns(projectId?: string): Promise<{ items: Run[]; total: number }> {
+    await this.ready;
     const items = this.runs
       .all()
       .filter((run) => (projectId ? run.projectId === projectId : true))
@@ -294,6 +336,7 @@ export class Daemon {
   /* ------------------------------------------------------------------ */
 
   async health(): Promise<unknown> {
+    await this.ready;
     const settings = await this.settingsStore.get();
     const probe = await new LlmClient(settings.llm).probe();
     return {
@@ -342,6 +385,10 @@ export class Daemon {
       return;
     }
 
+    // Every request waits for the persisted state, so `/api/projects` right
+    // after a restart returns the stored projects instead of an empty list.
+    await this.ready;
+
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
 
     for (const route of this.routes) {
@@ -361,7 +408,7 @@ export class Daemon {
         this.sendJson(response, 200, result ?? {});
       } catch (error) {
         if (error instanceof HttpError) {
-          this.sendJson(response, error.status, { error: error.name, message: error.message });
+          this.sendJson(response, error.status, { error: error.code, message: error.message });
         } else {
           logger.error(String(error));
           this.sendJson(response, 500, {
@@ -424,24 +471,53 @@ export class Daemon {
   }
 
   listen(): void {
-    createServer((request, response) => {
+    const server = createServer((request, response) => {
       void this.handle(request, response);
-    }).listen(this.config.port, this.config.host, () => {
-      logger.success(`daemon listening on http://${this.config.host}:${this.config.port}`);
-      logger.info(`data directory: ${this.config.dataDir}`);
+    });
+
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(
+          `port ${this.config.port} is already in use — stop the other process or set PORT`,
+        );
+      } else {
+        logger.error(`server error: ${error.message}`);
+      }
+      process.exit(1);
+    });
+
+    void this.ready.then(() => {
+      server.listen(this.config.port, this.config.host, () => {
+        logger.success(`daemon listening on http://${this.config.host}:${this.config.port}`);
+        logger.info(`data directory: ${this.config.dataDir} (version ${this.config.version})`);
+      });
     });
   }
 }
 
 /* -------------------------------------------------------------------- */
 
+const ERROR_CODES: Record<number, string> = {
+  400: 'BadRequest',
+  403: 'Forbidden',
+  404: 'NotFound',
+  409: 'Conflict',
+  413: 'PayloadTooLarge',
+  429: 'TooManyRequests',
+  500: 'InternalError',
+  502: 'BadGateway',
+};
+
 export class HttpError extends Error {
   readonly status: number;
+  /** Stable, machine-readable code such as `BadRequest` or `NotFound`. */
+  readonly code: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code = ERROR_CODES[status] ?? 'Error') {
     super(message);
     this.name = 'HttpError';
     this.status = status;
+    this.code = code;
   }
 }
 
