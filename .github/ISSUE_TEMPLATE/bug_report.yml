@@ -1,0 +1,68 @@
+name: Bug report
+description: Something in the studio or the daemon does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this.
+        If the studio shows an **offline** banner, mention it — it changes how we debug.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+      placeholder: The drawer does not open when I click a tool card…
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: v0.2.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: node
+    attributes:
+      label: Node version
+      options: [v22.18+, v22.0–22.17, v20 or older, other]
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options: [Studio UI, Daemon / API, Agent, Creator tools, Projects, Settings, Build or install]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Daemon output
+      description: The output of `npm run dev:daemon`, if the daemon is involved.
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues for this one.
+        - label: I can reproduce this on a fresh clone.

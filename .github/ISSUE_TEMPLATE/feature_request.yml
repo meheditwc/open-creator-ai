@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a new creator tool, a studio capability or an improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the workflow you need. Concrete examples beat abstract wishes.
+      placeholder: I want to take a long podcast episode and cut it into five vertical clips…
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What should the studio do about it?
+      description: If you have a sketch, a pipeline, or an API in mind, describe it.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change is this?
+      options:
+        - New creator tool
+        - Improvement to an existing tool
+        - Studio UI / workflow
+        - Daemon / API
+        - Documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have tried
+      description: A script, a skill, or another tool that almost does the job.
