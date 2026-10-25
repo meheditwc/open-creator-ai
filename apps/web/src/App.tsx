@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import { useHashRoute, type RouteName } from './lib/router.ts';
 import { AppProvider, useApp } from './state/AppState.tsx';
 import { Sidebar } from './components/Sidebar.tsx';

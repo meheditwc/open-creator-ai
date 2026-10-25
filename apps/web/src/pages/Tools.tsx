@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import { CATEGORY_LABELS } from '@open-creator/shared';
 import type { ToolCategory } from '@open-creator/shared';
 import { useApp } from '../state/AppState.tsx';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type JSX } from 'react';
 import type { ToolDefinition } from '@open-creator/shared';
 import { CATEGORY_LABELS } from '@open-creator/shared';
 import { Icon } from './Icon.tsx';
