@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Open Creator AI logo">
+  <defs>
+    <linearGradient id="oc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c5cff" />
+      <stop offset="55%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="62" height="62" rx="17" fill="#0a0a12" />
+  <rect x="1.5" y="1.5" width="61" height="61" rx="16.5" fill="none" stroke="url(#oc)" stroke-width="2" />
+  <path d="M19 43 L32 17 L45 43" fill="none" stroke="url(#oc)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M24.8 34.6 H39.2" stroke="url(#oc)" stroke-width="5" stroke-linecap="round" />
+  <circle cx="47" cy="21" r="4.5" fill="#22d3ee" />
+</svg>

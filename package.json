@@ -1,0 +1,36 @@
+{
+  "name": "open-creator-ai",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Open-source AI workspace for creators — plan, generate and ship video, image and audio content with an agent-native studio.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @open-creator/daemon & npm run dev --workspace @open-creator/web",
+    "dev:web": "npm run dev --workspace @open-creator/web",
+    "dev:daemon": "npm run dev --workspace @open-creator/daemon",
+    "build": "npm run build --workspace @open-creator/shared && npm run build --workspace @open-creator/web",
+    "start": "npm run start --workspace @open-creator/daemon",
+    "typecheck": "npm run typecheck --workspace @open-creator/shared && npm run typecheck --workspace @open-creator/web",
+    "clean": "rm -rf apps/web/dist apps/web/node_modules/.vite packages/shared/dist",
+    "format": "prettier --write \"**/*.{ts,tsx,css,md,json,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json,yml,yaml}\"",
+    "lint": "eslint .",
+    "test": "node --test apps/daemon/test/*.test.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^26.6.5",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  }
+}
