@@ -3,7 +3,13 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.runtime/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.runtime/**',
+      // The runtime smoke harness runs under npm test, keeping lint's source set stable.
+      'apps/web/test/render.test.js',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

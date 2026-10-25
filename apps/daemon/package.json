@@ -1,6 +1,6 @@
 {
   "name": "@open-creator/daemon",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Local runtime for Open Creator AI — projects, runs, settings and the agent endpoint.",

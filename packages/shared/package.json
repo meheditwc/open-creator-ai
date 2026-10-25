@@ -1,6 +1,6 @@
 {
   "name": "@open-creator/shared",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Shared types, tool catalogue and API client for Open Creator AI.",
