@@ -1,6 +1,6 @@
 {
   "name": "@open-creator/web",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "The Open Creator AI studio — a web workspace for creators.",

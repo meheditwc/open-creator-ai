@@ -31,7 +31,7 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
+      - name: Test (daemon + browser runtime)
         run: npm test
 
       - name: Build
