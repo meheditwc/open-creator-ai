@@ -12,6 +12,7 @@ import {
 import { TOOLS, localAgentReply } from '@open-creator/shared';
 import type {
   AppSettings,
+  Capabilities,
   ChatResponse,
   DaemonHealth,
   Project,
@@ -37,12 +38,15 @@ interface AppContextValue {
   runs: Run[];
   tools: ToolDefinition[];
   settings: AppSettings | null;
+  capabilities: Capabilities | null;
   toasts: Toast[];
   refresh: () => Promise<void>;
   createProject: (input: ProjectInput) => Promise<void>;
   updateProject: (id: string, patch: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   createRun: (input: RunInput) => Promise<void>;
+  deleteRun: (id: string) => Promise<void>;
+  refreshCapabilities: () => Promise<void>;
   saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
   chat: (message: string, projectId?: string) => Promise<ChatResponse>;
   notify: (message: string, tone?: Toast['tone']) => void;
@@ -81,6 +85,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [projects, setProjects] = useState<Project[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastTimers = useRef<number[]>([]);
 
@@ -95,6 +100,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const refreshCapabilities = useCallback(async () => {
+    try {
+      setCapabilities(await api.capabilities());
+    } catch {
+      setCapabilities(null);
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -125,14 +138,19 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     }
   }, []);
 
+  const hasActiveRun = runs.some((run) => run.status === 'queued' || run.status === 'running');
+
   useEffect(() => {
     void refresh();
-    const interval = window.setInterval(() => void refresh(), 15_000);
+    void refreshCapabilities();
+    // Idle workspaces poll slowly; while a render is in flight the studio
+    // refreshes every second so progress and artifacts appear as they land.
+    const interval = window.setInterval(() => void refresh(), hasActiveRun ? 1_200 : 15_000);
     return () => {
       window.clearInterval(interval);
       toastTimers.current.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [refresh]);
+  }, [refresh, hasActiveRun]);
 
   const createProject = useCallback(
     async (input: ProjectInput) => {
@@ -213,9 +231,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
             projectId: input.projectId ?? '',
             tool: input.tool,
             title: input.title ?? input.tool,
-            status: 'running',
-            progress: 40,
-            message: 'Running locally — start the daemon for full pipeline output.',
+            status: 'failed',
+            progress: 100,
+            message: 'Rendering needs the local daemon.',
+            error:
+              'The studio is running without the daemon, so nothing can be rendered. Start it with `npm run dev:daemon` and run this tool again.',
+            artifacts: [],
+            notes: [],
+            input,
             createdAt: now,
             updatedAt: now,
           };
@@ -224,6 +247,19 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
         notify(`Run queued for ${input.tool}`, 'success');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'Could not start the run', 'error');
+      }
+    },
+    [daemonOnline, notify],
+  );
+
+  const deleteRun = useCallback(
+    async (id: string) => {
+      try {
+        if (daemonOnline) await api.deleteRun(id);
+        setRuns((current) => persistRuns(current.filter((run) => run.id !== id)));
+        notify('Run deleted', 'success');
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'Could not delete the run', 'error');
       }
     },
     [daemonOnline, notify],
@@ -269,12 +305,15 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       runs,
       tools: TOOLS,
       settings,
+      capabilities,
       toasts,
       refresh,
       createProject,
       updateProject,
       deleteProject,
       createRun,
+      deleteRun,
+      refreshCapabilities,
       saveSettings,
       chat,
       notify,
@@ -287,12 +326,15 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       projects,
       runs,
       settings,
+      capabilities,
       toasts,
       refresh,
       createProject,
       updateProject,
       deleteProject,
       createRun,
+      deleteRun,
+      refreshCapabilities,
       saveSettings,
       chat,
       notify,

@@ -2,10 +2,13 @@ import { useState, type JSX } from 'react';
 import { useApp } from '../state/AppState.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { RunDetails } from '../components/RunDetails.tsx';
 import { pluralize, relativeTime } from '../lib/format.ts';
 
 export function Projects(): JSX.Element {
   const { projects, runs, createProject, deleteProject, updateProject } = useApp();
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const openRun = runs.find((run) => run.id === openRunId) ?? null;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
@@ -158,12 +161,25 @@ export function Projects(): JSX.Element {
                 {runs.map((run) => {
                   const project = projects.find((candidate) => candidate.id === run.projectId);
                   return (
-                    <tr key={run.id}>
+                    <tr
+                      key={run.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setOpenRunId(run.id)}
+                    >
                       <td>
                         <div style={{ fontWeight: 550 }}>{run.title}</div>
                         <div className="faint mono" style={{ fontSize: 11 }}>
                           {run.message}
                         </div>
+                        {(run.artifacts?.length ?? 0) > 0 && (
+                          <div className="faint" style={{ fontSize: 11 }}>
+                            {run.artifacts.length} file{run.artifacts.length === 1 ? '' : 's'} ·{' '}
+                            {run.artifacts
+                              .slice(0, 2)
+                              .map((artifact) => artifact.name)
+                              .join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td className="muted">{run.tool}</td>
                       <td className="muted">{project?.name ?? '—'}</td>
@@ -191,6 +207,8 @@ export function Projects(): JSX.Element {
           </div>
         )}
       </section>
+
+      {openRun && <RunDetails run={openRun} onClose={() => setOpenRunId(null)} />}
     </>
   );
 }

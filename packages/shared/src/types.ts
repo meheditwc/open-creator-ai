@@ -32,6 +32,22 @@ export interface ProjectInput {
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed';
 
+/** A rendered deliverable that lives in the daemon's artifact directory. */
+export interface Artifact {
+  id: string;
+  name: string;
+  kind: 'image' | 'video' | 'audio' | 'text' | 'subtitle' | 'document';
+  mime: string;
+  bytes: number;
+  /** Relative URL served by the daemon, e.g. `/api/artifacts/run_x/clip.mp4`. */
+  url: string;
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  note?: string;
+  createdAt: string;
+}
+
 export interface Run {
   id: string;
   projectId: string;
@@ -41,15 +57,41 @@ export interface Run {
   /** 0 – 100 */
   progress: number;
   message: string;
+  /** Files this run produced. */
+  artifacts: Artifact[];
+  /** What the creator asked for (prompt, source, aspect, duration…). */
+  input: RunInput;
+  /** Everything still missing to finish the job (a provider, a binary…). */
+  notes: string[];
+  /** Human-readable failure reason when `status` is `failed`. */
+  error?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+export type RunAspect = '16:9' | '9:16' | '1:1';
 
 export interface RunInput {
   projectId?: string;
   tool: string;
   title?: string;
+  /** The creator's prompt / topic. */
   prompt?: string;
+  /** A source URL or pasted text (subtitles, narration, transcript). */
+  sourceUrl?: string;
+  language?: string;
+  aspect?: RunAspect;
+  durationSeconds?: number;
+  /** How many variants to render where the tool supports it. */
+  variants?: number;
+}
+
+/** What this machine can actually do right now. */
+export interface Capabilities {
+  ffmpeg: { available: boolean; version?: string; path?: string; error?: string };
+  ytDlp: { available: boolean; version?: string; error?: string };
+  provider: { configured: boolean; reachable: boolean; models: string[] };
+  tools: Record<string, { ready: boolean; missing: string[]; note?: string }>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -77,6 +119,14 @@ export interface ToolCapability {
   detail: string;
 }
 
+/**
+ * How a tool actually runs:
+ * - `local`    — renders real files on this machine with ffmpeg, no provider.
+ * - `provider` — needs a model provider for the interesting part.
+ * - `external` — needs another binary on the machine (yt-dlp, whisper…).
+ */
+export type ToolEngine = 'local' | 'provider' | 'external';
+
 export interface ToolDefinition {
   id: string;
   name: string;
@@ -89,6 +139,8 @@ export interface ToolDefinition {
   outputs: string[];
   pipeline: string[];
   requires: string[];
+  /** What has to be installed/configured for this tool to produce output. */
+  engine: ToolEngine;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -5,148 +5,142 @@ single source of truth. The UI, the API and this page are all generated from it.
 
 Status legend:
 
-| Status    | Meaning                                                       |
-| --------- | ------------------------------------------------------------- |
-| `stable`  | The pipeline is defined, documented and wired into the studio |
-| `beta`    | The pipeline works, but the defaults may still change         |
-| `planned` | Specified, not yet implemented                                |
+| Status    | Meaning                                                                    |
+| --------- | -------------------------------------------------------------------------- |
+| `stable`  | Renders real files on your machine today (ffmpeg only, no provider needed) |
+| `beta`    | Produces the parts it can, and tells you exactly what is still missing     |
+| `planned` | Specified, not yet implemented                                             |
+
+---
+
+## What runs on your machine
+
+- **local** (renders locally with ffmpeg — no API key needed): Thumbnail Generator, Image Generation, Video Generation, Article Writer, Short Video Script, Stick Figure Animation, Subtitle Studio, Workflow Planner
+- **provider** (needs a text + TTS provider for the full output): Video Translation, Voiceover & Dubbing
+- **external** (needs an external binary on this machine): Video Downloader
+
+Every run writes its files to `<dataDir>/artifacts/<runId>/` and serves them at
+`/api/artifacts/<runId>/<file>`. Open a run in the studio to preview or download them.
 
 ---
 
 ## Video Translation
 
-Translate a source video: transcribe, translate the subtitles, dub the voice track and export.
+Transcribe a source video, translate the subtitles, dub the voice track and export a new video.
 
-- **Status** — stable
-- **Inputs** — video file or URL · source language (auto-detect) · target language
+- **Status** — `beta` · **category** — Video
+- **Runs** — needs a text + TTS provider for the full output
+- **Inputs** — Video file or URL · Source language (auto-detect) · Target language
 - **Pipeline** — `download → transcribe → translate → dub → render`
-- **Outputs** — translated video · SRT subtitles · dubbed audio track
-- **Requires** — `ffmpeg`, `yt-dlp`, `whisper`
+- **Outputs** — Translated video · SRT subtitles · Dubbed audio track
+- **Requires** — `ffmpeg`, `whisper`, `text + TTS provider`
 
 ## Video Downloader
 
-Pull source material from YouTube, Bilibili, TikTok, Instagram, Douyin and 100+ platforms.
+Pull source material from YouTube, Bilibili, TikTok, Instagram, Douyin and 100+ other platforms.
 
-- **Status** — stable
-- **Inputs** — video URL
+- **Status** — `beta` · **category** — Video
+- **Runs** — needs an external binary on this machine
+- **Inputs** — Video URL
 - **Pipeline** — `resolve → download`
-- **Outputs** — source video file · metadata JSON
+- **Outputs** — Source video file · Metadata JSON
 - **Requires** — `yt-dlp`
 
 ## Thumbnail Generator
 
 Produce several click-worthy thumbnail variations from a title, a frame or a reference image.
 
-- **Status** — stable
-- **Inputs** — title · optional reference image · target aspect ratio
+- **Status** — `stable` · **category** — Image
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Title · Optional reference image · Target aspect ratio
 - **Pipeline** — `prompt → generate → rank`
-- **Outputs** — 3–6 thumbnail PNGs · prompt log
-- **Requires** — an image model
+- **Outputs** — 3–6 thumbnail PNGs · Prompt log
+- **Requires** — `ffmpeg`
 
 ## Image Generation
 
 Create illustrations, covers and b-roll stills from a prompt, with optional reference control.
 
-- **Status** — stable
-- **Inputs** — prompt · optional reference image · aspect ratio
+- **Status** — `stable` · **category** — Image
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Prompt · Optional reference image · Aspect ratio
 - **Pipeline** — `prompt → generate`
-- **Outputs** — generated image · prompt log
-- **Requires** — an image model
+- **Outputs** — Generated image · Prompt log
+- **Requires** — `ffmpeg`
 
 ## Video Generation
 
 Generate short clips from text or a still image, then trim and caption them.
 
-- **Status** — beta
-- **Inputs** — prompt or image · duration · aspect ratio
+- **Status** — `stable` · **category** — Video
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Prompt or image · Duration · Aspect ratio
 - **Pipeline** — `prompt → generate → caption`
-- **Outputs** — video clip · optional subtitle file
-- **Requires** — a video model
+- **Outputs** — Video clip · Optional subtitle file
+- **Requires** — `ffmpeg`
 
 ## Article Writer
 
 Turn a topic, a link or a video into a structured, editable long-form article.
 
-- **Status** — stable
-- **Inputs** — topic, links or video · audience · target length
+- **Status** — `stable` · **category** — Text
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Topic, links or video · Audience · Target length
 - **Pipeline** — `research → outline → draft → export`
 - **Outputs** — Markdown · HTML · PDF
-- **Requires** — a text model
+- **Requires** — nothing outside the studio
 
 ## Short Video Script
 
-Write a shoot-ready, segmented script with hooks, beats and shot directions.
+Write a shoot-ready, segmented script with hooks, beats and shot directions for short form.
 
-- **Status** — stable
-- **Inputs** — topic · platform · audience · duration
+- **Status** — `stable` · **category** — Text
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Topic · Platform · Audience · Duration
 - **Pipeline** — `angle → segments → polish`
-- **Outputs** — segmented script · shot list · caption ideas
-- **Requires** — a text model
+- **Outputs** — Segmented script · Shot list · Caption ideas
+- **Requires** — `ffmpeg`
 
 ## Stick Figure Animation
 
 Turn a script or a YouTube link into narration, voiceover, storyboard, subtitles and video.
 
-- **Status** — beta
-- **Inputs** — script or URL · voice style · aspect ratio
+- **Status** — `stable` · **category** — Video
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Script or URL · Voice style · Aspect ratio
 - **Pipeline** — `script → narration → storyboard → render`
-- **Outputs** — narration audio · subtitles · animated video
-- **Requires** — `ffmpeg`, a TTS engine
+- **Outputs** — Narration audio · Subtitles · Animated video
+- **Requires** — `ffmpeg`
 
 ## Voiceover & Dubbing
 
 Generate expressive voice-overs and dub existing videos in another language.
 
-- **Status** — stable
-- **Inputs** — text or subtitles · voice · emotion · speed
+- **Status** — `beta` · **category** — Audio
+- **Runs** — needs a text + TTS provider for the full output
+- **Inputs** — Text or subtitles · Voice · Emotion · Speed
 - **Pipeline** — `chunk → synthesize → align`
-- **Outputs** — audio track · aligned subtitles
-- **Requires** — a TTS engine
+- **Outputs** — Audio track · Aligned subtitles
+- **Requires** — `text + TTS provider`, `ffmpeg`
 
 ## Subtitle Studio
 
 Transcribe, translate, burn in or re-time subtitles with bilingual and short-form presets.
 
-- **Status** — stable
-- **Inputs** — media file or URL · languages · style preset
+- **Status** — `stable` · **category** — Utility
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Media file or URL · Languages · Style preset
 - **Pipeline** — `transcribe → translate → style → render`
-- **Outputs** — SRT / VTT · burned-in video · bilingual track
-- **Requires** — `ffmpeg`, `whisper`
+- **Outputs** — SRT / VTT · Burned-in video · Bilingual track
+- **Requires** — `ffmpeg`
 
 ## Workflow Planner
 
 Describe an outcome and get a sequenced, tool-aware plan you can execute step by step.
 
-- **Status** — beta
-- **Inputs** — goal · constraints · deadline
+- **Status** — `stable` · **category** — Utility
+- **Runs** — renders locally with ffmpeg — no API key needed
+- **Inputs** — Goal · Constraints · Deadline
 - **Pipeline** — `decompose → map-tools → schedule`
-- **Outputs** — step-by-step plan · tool checklist
-- **Requires** — nothing
-
----
-
-## Adding a tool
-
-1. Add an entry to `TOOLS` in `packages/shared/src/tools.ts`:
-
-   ```ts
-   {
-     id: 'my-tool',
-     name: 'My Tool',
-     category: 'video',          // video | image | audio | text | utility
-     status: 'beta',             // stable | beta | planned
-     summary: 'One sentence that shows up on the card.',
-     icon: 'film',               // any name from the shared icon list
-     accent: '#7c5cff',          // card accent colour
-     inputs: ['What the creator provides'],
-     outputs: ['What the creator gets back'],
-     pipeline: ['step-one', 'step-two'],
-     requires: ['ffmpeg'],
-   }
-   ```
-
-2. Add the icon to the `Icon` component in `apps/web/src/components/Icon.tsx` if it is new.
-3. Add keyword hints for the offline planner in `packages/shared/src/planner.ts`.
-4. Run `npm run typecheck && npm run build` — the catalogue, the API and the docs follow.
-
-No UI code, no API code, no documentation code: the catalogue _is_ the wiring.
+- **Outputs** — Step-by-step plan · Tool checklist
+- **Requires** — nothing outside the studio

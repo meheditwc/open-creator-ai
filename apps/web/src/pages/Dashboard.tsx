@@ -1,10 +1,11 @@
-import { useMemo, type JSX } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import type { RouteName } from '../lib/router.ts';
 import { useApp } from '../state/AppState.tsx';
 import { StatCard } from '../components/StatCard.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { ToolCard } from '../components/ToolCard.tsx';
+import { RunDetails } from '../components/RunDetails.tsx';
 import { greeting, pluralize, relativeTime } from '../lib/format.ts';
 
 export function Dashboard({
@@ -15,6 +16,8 @@ export function Dashboard({
   onSelectTool: (toolId: string) => void;
 }): JSX.Element {
   const { projects, runs, tools, health, daemonOnline } = useApp();
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const openRun = runs.find((run) => run.id === openRunId) ?? null;
 
   const stats = useMemo(() => {
     const completed = runs.filter((run) => run.status === 'completed').length;
@@ -139,7 +142,11 @@ export function Dashboard({
               </thead>
               <tbody>
                 {runs.slice(0, 7).map((run) => (
-                  <tr key={run.id}>
+                  <tr
+                    key={run.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setOpenRunId(run.id)}
+                  >
                     <td>
                       <div style={{ fontWeight: 550 }}>{run.title}</div>
                       <div className="faint mono" style={{ fontSize: 11 }}>
@@ -238,6 +245,8 @@ export function Dashboard({
           </div>
         )}
       </section>
+
+      {openRun && <RunDetails run={openRun} onClose={() => setOpenRunId(null)} />}
     </>
   );
 }

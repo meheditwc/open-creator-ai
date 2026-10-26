@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Runs now render real files.** The daemon has a render worker that shells out to
+  `ffmpeg` and writes deliverables into `<dataDir>/artifacts/<runId>/`:
+  - Thumbnail Generator → 1–6 typographic PNG thumbnails in three layouts + a prompt log
+  - Image Generation → 16:9 and 1:1 cover art + prompt log
+  - Video Generation → MP4 with burned-in kinetic captions + SRT/VTT
+  - Short Video Script → segmented script, vertical teaser MP4, SRT
+  - Stick Figure Animation → stick-figure MP4 (ASS vector poses), storyboard PNGs, narration
+  - Subtitle Studio → SRT + VTT + captioned preview MP4
+  - Article Writer → Markdown + styled self-contained HTML
+  - Workflow Planner → sequenced plan in Markdown
+- **`GET /api/artifacts/:runId/:file`** serves rendered files with HTTP Range support, so
+  video scrubbing and downloads work straight from the studio.
+- **Run details drawer** in the studio: image/video/audio previews, file sizes,
+  download buttons, the run input and any setup notes.
+- **`GET /api/capabilities`** reports whether ffmpeg, yt-dlp and a provider are available,
+  per tool, and the tool drawer shows a `ready` / `needs …` badge before you start a run.
+- **`GET /api/runs/:id` and `DELETE /api/runs/:id`** (deleting a run removes its artifacts).
+- **`npm run setup:media`** installs a local ffmpeg (system → `pip3 imageio-ffmpeg` →
+  static GitHub build) into the git-ignored `apps/daemon/.bin/`.
+- Tool drawer now takes real inputs: prompt/topic, source URL or text, aspect ratio,
+  duration and variant count.
+
+### Changed
+
+- `Run` gained `artifacts`, `input`, `notes` and `error`; `ToolDefinition` gained `engine`
+  (`local` / `provider` / `external`) so the catalogue states what each tool needs.
+- The studio polls every 1.2s while a render is in flight (15s when idle).
+- Tool statuses are now truthful: the tools that render locally are `stable`, the ones
+  that need a provider or `yt-dlp` are `beta` and say what is missing.
+- CI installs ffmpeg and the Docker image ships DejaVu fonts so rendered text matches.
+
 ### Fixed
 
 - **Data loss on restart.** The daemon never read `projects.json` / `runs.json`

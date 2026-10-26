@@ -35,6 +35,7 @@ Most AI media tools are a chat box that throws a file at you. Open Creator AI is
 | **Everything is yours**      | Apache-2.0 licensed, self-hosted, no telemetry, no account, no cloud lock-in.                                        |
 | **Works without a model**    | A built-in offline planner answers with a real pipeline plan, so the studio is useful before you configure anything. |
 | **Zero native dependencies** | `npm install` never compiles anything. The daemon is plain Node.js — it starts in milliseconds.                      |
+| **Renders real files**       | Runs produce downloadable PNG / MP4 / SRT / MD files in `apps/daemon/.runtime/artifacts/`, served by the daemon.     |
 
 ---
 
@@ -44,6 +45,7 @@ Most AI media tools are a chat box that throws a file at you. Open Creator AI is
 git clone https://github.com/meheditwc/open-creator-ai.git
 cd open-creator-ai
 npm install
+npm run setup:media   # installs a local ffmpeg if you do not have one
 npm run dev
 ```
 
@@ -54,7 +56,13 @@ That starts two processes:
 | **Studio** | http://localhost:19861 | The web workspace (React + Vite)                            |
 | **Daemon** | http://127.0.0.1:9861  | Local runtime: projects, runs, settings, the agent endpoint |
 
-Open <http://localhost:19861> and you are in. No account, no key, no setup wizard.
+Open <http://localhost:19861>, pick a tool, type a prompt and press **Start run**. A few
+seconds later the run shows its files — click it to preview the image/video or download it.
+No account, no key, no setup wizard.
+
+> `npm run setup:media` is only needed when `ffmpeg` is not already on your PATH. The
+> script tries `pip3 install imageio-ffmpeg`, then a static build from GitHub, and writes
+> the binary to `apps/daemon/.bin/` (git-ignored). Docker users need nothing extra.
 
 <details>
 <summary><b>Connect a model provider (optional)</b></summary>
@@ -106,19 +114,23 @@ open-creator-ai/
 
 Every tool is a documented pipeline with typed inputs, outputs and requirements.
 
-| Tool                       | Category | Status | Pipeline                                         |
-| -------------------------- | -------- | ------ | ------------------------------------------------ |
-| **Video Translation**      | video    | stable | download → transcribe → translate → dub → render |
-| **Video Downloader**       | video    | stable | resolve → download                               |
-| **Thumbnail Generator**    | image    | stable | prompt → generate → rank                         |
-| **Image Generation**       | image    | stable | prompt → generate                                |
-| **Video Generation**       | video    | beta   | prompt → generate → caption                      |
-| **Article Writer**         | text     | stable | research → outline → draft → export              |
-| **Short Video Script**     | text     | stable | angle → segments → polish                        |
-| **Stick Figure Animation** | video    | beta   | script → narration → storyboard → render         |
-| **Voiceover & Dubbing**    | audio    | stable | chunk → synthesize → align                       |
-| **Subtitle Studio**        | utility  | stable | transcribe → translate → style → render          |
-| **Workflow Planner**       | utility  | beta   | decompose → map-tools → schedule                 |
+| Tool                       | Category | Status | Renders today                                                            |
+| -------------------------- | -------- | ------ | ------------------------------------------------------------------------ |
+| **Thumbnail Generator**    | image    | stable | 1–6 typographic PNG thumbnails + prompt log, no provider needed          |
+| **Image Generation**       | image    | stable | Cover art PNG (16:9 + 1:1) + prompt log                                  |
+| **Video Generation**       | video    | stable | MP4 clip with burned-in kinetic captions + SRT/VTT                       |
+| **Short Video Script**     | text     | stable | Segmented script (MD), vertical teaser MP4, SRT                          |
+| **Stick Figure Animation** | video    | stable | Stick-figure MP4 animation + storyboard PNGs + narration script          |
+| **Subtitle Studio**        | utility  | stable | SRT + VTT + a captioned preview MP4                                      |
+| **Article Writer**         | text     | stable | Article as Markdown + a styled self-contained HTML file                  |
+| **Workflow Planner**       | utility  | stable | A sequenced, tool-aware plan as Markdown                                 |
+| **Video Translation**      | video    | beta   | Timed source SRT + worksheet; translation/dub need a text + TTS provider |
+| **Voiceover & Dubbing**    | audio    | beta   | Narration script + timed SRT; the audio track needs a TTS provider       |
+| **Video Downloader**       | video    | beta   | Real downloads; needs `yt-dlp` on the machine                            |
+
+**Everything in the `stable` rows runs on your machine with ffmpeg alone — no API key, no
+account, no cloud.** The `beta` rows produce the parts that do not need a model, and say
+exactly what is missing instead of pretending to succeed.
 
 See [`docs/TOOLS.md`](docs/TOOLS.md) for the full reference, and
 [`packages/shared/src/tools.ts`](packages/shared/src/tools.ts) for the source of truth.
@@ -208,6 +220,10 @@ flowchart LR
   planner. If `ffmpeg` is missing, the tool still shows you the plan.
 - **Atomic persistence.** Every write goes to a temp file and is renamed into
   place, so a crash can never leave a half-written project file behind.
+- **Real renders, honest gaps.** The daemon shells out to ffmpeg and writes actual
+  files into `artifacts/<runId>/`; every run records the files it produced. When a
+  tool needs something the machine does not have (a provider key, `yt-dlp`), the
+  run fails with the exact missing piece instead of a fake "completed".
 
 Read the full design notes in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -271,6 +287,7 @@ Contributions are very welcome — from a typo fix to a whole new tool pipeline.
 git clone https://github.com/meheditwc/open-creator-ai.git
 cd open-creator-ai
 npm install
+npm run setup:media   # installs a local ffmpeg if you do not have one
 npm run dev
 ```
 

@@ -1,12 +1,22 @@
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { dirname, extname, join, normalize, resolve } from 'node:path';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AGENT_SYSTEM_PROMPT, TOOLS, localAgentReply } from '@open-creator/shared';
-import type { AppSettings, ChatResponse, Project, Run } from '@open-creator/shared';
+import type {
+  AppSettings,
+  Capabilities,
+  ChatResponse,
+  Project,
+  Run,
+  RunInput,
+} from '@open-creator/shared';
 import { JsonStore, SettingsStore, storePaths } from './store.ts';
 import { LlmClient } from './llm.ts';
+import { resolveFfmpeg, resolveOptional } from './media.ts';
+import { providerConfigured } from './provider.ts';
+import { RenderQueue, artifactsDir, executeRun, mimeFor } from './worker.ts';
 import { logger } from './logger.ts';
 import type { AppConfig } from './config.ts';
 
@@ -45,6 +55,8 @@ export class Daemon {
   private readonly startedAt = new Date();
   /** Resolves once the persisted state is in memory (and repaired if needed). */
   private readonly ready: Promise<void>;
+  /** Two renders at a time keeps ffmpeg from starving the HTTP server. */
+  private readonly queue = new RenderQueue(2, (runId) => this.executeRunById(runId));
 
   private readonly config: AppConfig;
 
@@ -147,13 +159,13 @@ export class Daemon {
       this.listRuns(query.get('projectId') ?? undefined),
     );
 
-    this.route('POST', '/api/runs', async ({ body }) =>
-      this.createRun({
-        tool: String(body.tool ?? ''),
-        projectId: body.projectId === undefined ? undefined : String(body.projectId),
-        title: body.title === undefined ? undefined : String(body.title),
-      }),
-    );
+    this.route('POST', '/api/runs', async ({ body }) => this.createRun(parseRunInput(body)));
+
+    this.route('GET', '/api/runs/:id', async ({ params }) => this.getRunOrThrow(params.id));
+
+    this.route('DELETE', '/api/runs/:id', async ({ params }) => this.deleteRun(params.id));
+
+    this.route('GET', '/api/capabilities', async () => this.capabilities());
 
     this.route('GET', '/api/settings', async () => this.getSettings());
 
@@ -218,7 +230,13 @@ export class Daemon {
     const removed = await this.projects.remove(id);
     if (!removed) throw new HttpError(404, 'Project not found');
     const orphanRuns = this.runs.all().filter((run) => run.projectId === id);
-    for (const run of orphanRuns) await this.runs.remove(run.id);
+    for (const run of orphanRuns) {
+      await this.runs.remove(run.id);
+      await rm(join(artifactsDir(this.config.dataDir), run.id), {
+        recursive: true,
+        force: true,
+      });
+    }
     return { deleted: true };
   }
 
@@ -235,7 +253,8 @@ export class Daemon {
     return this.runs.get(id);
   }
 
-  async createRun(input: { tool: string; projectId?: string; title?: string }): Promise<Run> {
+  async createRun(input: RunInput): Promise<Run> {
+    await this.ready;
     const tool = TOOLS.find((candidate) => candidate.id === input.tool);
     if (!tool) throw new HttpError(400, `Unknown tool: ${input.tool || '(missing)'}`);
     const projectId = input.projectId ?? '';
@@ -247,16 +266,74 @@ export class Daemon {
       id: createId('run'),
       projectId,
       tool: tool.id,
-      title: input.title ?? tool.name,
+      title: (input.title?.trim() || tool.name).slice(0, 140),
       status: 'queued',
       progress: 0,
-      message: 'Queued — waiting for a worker.',
+      message: 'Queued — waiting for a render slot.',
+      artifacts: [],
+      notes: [],
+      input,
       createdAt: now,
       updatedAt: now,
     };
     await this.runs.put(run);
-    this.advanceRun(run.id).catch((error) => logger.error(String(error)));
+    this.queue.enqueue(run.id);
     return run;
+  }
+
+  async getRunOrThrow(id: string): Promise<Run> {
+    await this.ready;
+    const run = this.runs.get(id);
+    if (!run) throw new HttpError(404, 'Run not found');
+    return run;
+  }
+
+  async deleteRun(id: string): Promise<{ deleted: boolean }> {
+    await this.ready;
+    const removed = await this.runs.remove(id);
+    if (!removed) throw new HttpError(404, 'Run not found');
+    await rm(join(artifactsDir(this.config.dataDir), id), { recursive: true, force: true });
+    return { deleted: true };
+  }
+
+  /** What this machine can actually render right now. */
+  async capabilities(): Promise<Capabilities> {
+    const settings = await this.settingsStore.get();
+    const [ffmpegInfo, ytDlp] = await Promise.all([resolveFfmpeg(), resolveOptional('yt-dlp')]);
+    const configured = providerConfigured(settings.llm);
+    const probe = configured
+      ? await new LlmClient(settings.llm).probe()
+      : { reachable: false, models: [] as string[] };
+
+    const tools: Capabilities['tools'] = {};
+    for (const tool of TOOLS) {
+      const missing: string[] = [];
+      if (tool.engine !== 'external' && !ffmpegInfo.available) missing.push('ffmpeg');
+      if (tool.engine === 'external' && !ytDlp.available) missing.push('yt-dlp');
+      if (tool.engine === 'provider' && !configured) missing.push('text + TTS provider');
+      tools[tool.id] = { ready: missing.length === 0, missing };
+    }
+
+    return {
+      ffmpeg: ffmpegInfo,
+      ytDlp,
+      provider: { configured, reachable: probe.reachable, models: probe.models },
+      tools,
+    };
+  }
+
+  private async executeRunById(runId: string): Promise<void> {
+    const run = this.runs.get(runId);
+    if (!run) return;
+    await executeRun(run, {
+      dataDir: this.config.dataDir,
+      getSettings: () => this.settingsStore.get(),
+      updateRun: async (id, patch) => {
+        const current = this.runs.get(id);
+        if (!current) return;
+        await this.runs.put({ ...current, ...patch });
+      },
+    });
   }
 
   async getSettings(): Promise<AppSettings> {
@@ -300,29 +377,6 @@ export class Daemon {
       suggestions: local.suggestions,
     };
     return response;
-  }
-
-  private async advanceRun(runId: string): Promise<void> {
-    const run = this.runs.get(runId);
-    if (!run) return;
-    const tool = TOOLS.find((candidate) => candidate.id === run.tool);
-
-    await this.updateRun(runId, { status: 'running', progress: 25, message: 'Preparing inputs…' });
-    await delay(350);
-    await this.updateRun(runId, {
-      progress: 65,
-      message: `${tool?.name ?? run.tool}: ${tool?.pipeline[0] ?? 'pipeline'} → ${
-        tool?.pipeline[1] ?? tool?.pipeline[0] ?? 'output'
-      }`,
-    });
-    await delay(350);
-    await this.updateRun(runId, {
-      status: 'completed',
-      progress: 100,
-      message: `Completed with ${tool?.outputs.length ?? 1} output${
-        (tool?.outputs.length ?? 1) === 1 ? '' : 's'
-      }. Add a local worker to render the assets.`,
-    });
   }
 
   private async updateRun(runId: string, patch: Partial<Run>): Promise<void> {
@@ -391,6 +445,11 @@ export class Daemon {
 
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
 
+    if (url.pathname.startsWith('/api/artifacts/')) {
+      await this.serveArtifact(url.pathname, request, response);
+      return;
+    }
+
     for (const route of this.routes) {
       if (route.method !== request.method) continue;
       const match = route.pattern.exec(url.pathname);
@@ -436,6 +495,77 @@ export class Daemon {
       'cache-control': 'no-store',
     });
     response.end(body);
+  }
+
+  /**
+   * Serve a rendered file with Range support so video scrubbing works in the
+   * browser. Only files inside `artifacts/<runId>/` are reachable.
+   */
+  private async serveArtifact(
+    pathname: string,
+    request: IncomingMessage,
+    response: ServerResponse,
+  ): Promise<void> {
+    const match = /^\/api\/artifacts\/([^/]+)\/(.+)$/.exec(pathname);
+    if (!match) {
+      this.sendJson(response, 404, { error: 'NotFound', message: 'Artifact not found' });
+      return;
+    }
+
+    let runId: string;
+    let name: string;
+    try {
+      runId = decodeURIComponent(match[1]);
+      name = decodeURIComponent(match[2]);
+    } catch {
+      this.sendJson(response, 400, { error: 'BadRequest', message: 'Malformed artifact path' });
+      return;
+    }
+
+    const dir = join(artifactsDir(this.config.dataDir), runId);
+    const filePath = normalize(join(dir, name));
+    if (!filePath.startsWith(`${dir}${sep}`) || name.includes('..')) {
+      this.sendJson(response, 403, { error: 'Forbidden', message: 'Invalid artifact path' });
+      return;
+    }
+
+    try {
+      const info = await stat(filePath);
+      if (!info.isFile()) throw new Error('not a file');
+
+      const type = mimeFor(name);
+      const headers: Record<string, string> = {
+        'content-type': type,
+        'cache-control': 'private, max-age=300',
+        'accept-ranges': 'bytes',
+        'content-disposition': `inline; filename="${name.replace(/"/g, '')}"`,
+      };
+
+      const range = request.headers.range;
+      if (range) {
+        const parsed = /bytes=(\d*)-(\d*)/.exec(range);
+        const start = parsed?.[1] ? Number.parseInt(parsed[1], 10) : 0;
+        const end = parsed?.[2] ? Number.parseInt(parsed[2], 10) : info.size - 1;
+        if (Number.isNaN(start) || start >= info.size) {
+          response.writeHead(416, { 'content-range': `bytes */${info.size}` });
+          response.end();
+          return;
+        }
+        const safeEnd = Math.min(end, info.size - 1);
+        response.writeHead(206, {
+          ...headers,
+          'content-range': `bytes ${start}-${safeEnd}/${info.size}`,
+          'content-length': String(safeEnd - start + 1),
+        });
+        createReadStream(filePath, { start, end: safeEnd }).pipe(response);
+        return;
+      }
+
+      response.writeHead(200, { ...headers, 'content-length': String(info.size) });
+      createReadStream(filePath).pipe(response);
+    } catch {
+      this.sendJson(response, 404, { error: 'NotFound', message: `No artifact named ${name}` });
+    }
   }
 
   /** Serve the built studio (apps/web/dist) when it exists. */
@@ -521,14 +651,39 @@ export class HttpError extends Error {
   }
 }
 
+/** Validate and normalise the JSON body of `POST /api/runs`. */
+function parseRunInput(body: Record<string, unknown>): RunInput {
+  const text = (value: unknown): string | undefined =>
+    value === undefined || value === null ? undefined : String(value).slice(0, 8000);
+
+  const aspect =
+    body.aspect === '16:9' || body.aspect === '9:16' || body.aspect === '1:1'
+      ? body.aspect
+      : undefined;
+
+  const number = (value: unknown): number | undefined => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  return {
+    tool: String(body.tool ?? ''),
+    projectId: text(body.projectId),
+    title: text(body.title),
+    prompt: text(body.prompt),
+    sourceUrl: text(body.sourceUrl),
+    language: text(body.language),
+    aspect,
+    durationSeconds: number(body.durationSeconds),
+    variants: number(body.variants),
+  };
+}
+
 function createId(prefix: string): string {
   const stamp = Date.now().toString(36);
   const random = Math.random().toString(36).slice(2, 8);
   return `${prefix}_${stamp}${random}`;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Daemon } from '../src/server.ts';
 import { loadConfig } from '../src/config.ts';
+import { resolveFfmpeg } from '../src/media.ts';
 
 const dataDir = join(tmpdir(), `open-creator-ai-test-${Date.now()}`);
 
@@ -73,18 +74,107 @@ test('a project name is required', async () => {
   });
 });
 
-test('runs advance through the pipeline', async () => {
+test('a run renders real files with ffmpeg', async (t) => {
+  const ffmpeg = await resolveFfmpeg();
+  if (!ffmpeg.available) {
+    t.skip('ffmpeg is not installed on this machine');
+    return;
+  }
+
   await withDaemon(async (daemon) => {
-    const run = await daemon.createRun({ tool: 'thumbnail-generator', title: 'Cover' });
+    const run = await daemon.createRun({
+      tool: 'thumbnail-generator',
+      title: 'Cover',
+      prompt: 'How I edit a week of content',
+      variants: 2,
+    });
     assert.equal(run.status, 'queued');
     assert.equal(run.progress, 0);
 
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    let finished = await daemon.getRun(run.id);
+    const deadline = Date.now() + 60_000;
+    while (finished?.status !== 'completed' && finished?.status !== 'failed') {
+      if (Date.now() > deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      finished = await daemon.getRun(run.id);
+    }
 
-    const finished = await daemon.getRun(run.id);
-    assert.equal(finished?.status, 'completed');
+    assert.equal(finished?.status, 'completed', finished?.error);
     assert.equal(finished?.progress, 100);
-    assert.ok(finished?.message.length);
+    assert.equal(finished?.artifacts.length, 3); // 2 PNGs + prompt log
+    const png = finished?.artifacts.find((artifact) => artifact.name.endsWith('.png'));
+    assert.ok(png, 'a PNG was rendered');
+    assert.equal(png?.kind, 'image');
+    assert.ok((png?.bytes ?? 0) > 5000, 'the PNG is not an empty file');
+    assert.equal(png?.url, `/api/artifacts/${run.id}/thumbnail-1-center.png`);
+  });
+});
+
+test('a run that needs a provider fails with an actionable message', async (t) => {
+  const ffmpeg = await resolveFfmpeg();
+  if (!ffmpeg.available) {
+    t.skip('ffmpeg is not installed on this machine');
+    return;
+  }
+
+  await withDaemon(async (daemon) => {
+    // Video Downloader requires yt-dlp; this environment has no download
+    // without it, and the run must say so instead of pretending to succeed.
+    const run = await daemon.createRun({
+      tool: 'video-downloader',
+      sourceUrl: 'https://example.com/video',
+    });
+
+    let finished = await daemon.getRun(run.id);
+    const deadline = Date.now() + 20_000;
+    while (finished?.status !== 'completed' && finished?.status !== 'failed') {
+      if (Date.now() > deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      finished = await daemon.getRun(run.id);
+    }
+
+    assert.equal(finished?.status, 'failed');
+    assert.match(finished?.error ?? '', /yt-dlp/i);
+    assert.equal(finished?.artifacts.length, 0);
+  });
+});
+
+test('capabilities report what this machine can actually run', async () => {
+  await withDaemon(async (daemon) => {
+    const capabilities = (await daemon.capabilities()) as {
+      ffmpeg: { available: boolean };
+      provider: { configured: boolean };
+      tools: Record<string, { ready: boolean; missing: string[] }>;
+    };
+
+    assert.equal(typeof capabilities.ffmpeg.available, 'boolean');
+    assert.equal(typeof capabilities.provider.configured, 'boolean');
+    assert.ok(capabilities.tools['thumbnail-generator']);
+    assert.ok(Array.isArray(capabilities.tools['thumbnail-generator'].missing));
+  });
+});
+
+test('a run without a prompt still renders from its title', async (t) => {
+  const ffmpeg = await resolveFfmpeg();
+  if (!ffmpeg.available) {
+    t.skip('ffmpeg is not installed on this machine');
+    return;
+  }
+
+  await withDaemon(async (daemon) => {
+    const run = await daemon.createRun({ tool: 'article-writer', title: 'Release notes v1' });
+    let finished = await daemon.getRun(run.id);
+    const deadline = Date.now() + 20_000;
+    while (finished?.status !== 'completed' && finished?.status !== 'failed') {
+      if (Date.now() > deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      finished = await daemon.getRun(run.id);
+    }
+    assert.equal(finished?.status, 'completed', finished?.error);
+    assert.deepEqual(finished?.artifacts.map((artifact) => artifact.name).sort(), [
+      'article.html',
+      'article.md',
+    ]);
   });
 });
 
@@ -131,7 +221,8 @@ test('projects and runs survive a daemon restart', async () => {
     const first = new Daemon(restartConfig);
     const project = await first.createProject({ name: 'Survives restarts' });
     const run = await first.createRun({ tool: 'short-script', projectId: project.id });
-    await waitFor(() => first.getRun(run.id)?.status === 'completed');
+    // A real render, not a simulated delay — give ffmpeg time to finish.
+    await waitFor(() => first.getRun(run.id)?.status === 'completed', 60_000);
 
     // A second instance on the same data directory is exactly what a restart
     // does: the workspace must be read back from disk, not started empty.

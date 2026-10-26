@@ -7,6 +7,10 @@ dist/
 build/
 *.tsbuildinfo
 
+# Locally installed media binaries (ffmpeg) and their download cache
+apps/daemon/.bin/
+.media/
+
 # Runtime data (projects, runs, settings)
 .runtime/
 .open-creator-ai/

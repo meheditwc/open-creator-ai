@@ -1387,3 +1387,65 @@ select {
   background: var(--text-faint);
   background-clip: content-box;
 }
+
+/* ── Rendered artifacts (run details) ─────────────────────────────────── */
+
+.drawer--wide {
+  width: min(760px, 100vw);
+}
+
+.artifact-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.artifact {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised, rgba(255, 255, 255, 0.02));
+  overflow: hidden;
+}
+
+.artifact__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.artifact__name {
+  font-size: 13px;
+  font-weight: 550;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact__media {
+  display: block;
+  width: 100%;
+  max-height: 460px;
+  object-fit: contain;
+  background: #08080d;
+}
+
+.artifact__audio {
+  display: block;
+  width: 100%;
+  padding: 12px;
+}
+
+.artifact__text {
+  margin: 0;
+  padding: 12px;
+  max-height: 280px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

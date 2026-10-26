@@ -1,5 +1,5 @@
 import { useState, type JSX } from 'react';
-import type { ToolDefinition } from '@open-creator/shared';
+import type { RunAspect, ToolDefinition } from '@open-creator/shared';
 import { CATEGORY_LABELS } from '@open-creator/shared';
 import { Icon } from './Icon.tsx';
 import { useApp } from '../state/AppState.tsx';
@@ -11,18 +11,43 @@ export function ToolDrawer({
   tool: ToolDefinition;
   onClose: () => void;
 }): JSX.Element {
-  const { projects, createRun, notify } = useApp();
+  const { projects, createRun, notify, capabilities } = useApp();
   const [projectId, setProjectId] = useState('');
   const [title, setTitle] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [aspect, setAspect] = useState<RunAspect>('16:9');
+  const [duration, setDuration] = useState(8);
+  const [variants, setVariants] = useState(3);
+  const [starting, setStarting] = useState(false);
+
+  const readiness = capabilities?.tools[tool.id];
+  const needsPrompt = tool.id !== 'video-downloader';
+  const wantsSource =
+    tool.id === 'video-downloader' ||
+    tool.id === 'subtitle-studio' ||
+    tool.id === 'video-translation' ||
+    tool.id === 'stick-figure';
 
   const startRun = async () => {
+    if (needsPrompt && !prompt.trim()) {
+      notify('Add a prompt or topic first', 'error');
+      return;
+    }
+    setStarting(true);
     await createRun({
       tool: tool.id,
       projectId: projectId || undefined,
-      title: title.trim() || `${tool.name} run`,
+      title: title.trim() || prompt.trim().slice(0, 80) || `${tool.name} run`,
+      prompt: prompt.trim() || undefined,
+      sourceUrl: sourceUrl.trim() || undefined,
+      aspect,
+      durationSeconds: duration,
+      variants,
     });
+    setStarting(false);
     setTitle('');
-    notify(`${tool.name} queued`, 'success');
+    notify(`${tool.name} started`, 'success');
     onClose();
   };
 
@@ -56,6 +81,19 @@ export function ToolDrawer({
             <span className={`badge badge--${tool.status}`}>{tool.status}</span>
             <span className="badge">{CATEGORY_LABELS[tool.category]}</span>
             <span className="badge badge--accent">{tool.pipeline.length}-stage pipeline</span>
+            {readiness && (
+              <span
+                className="badge"
+                style={{ color: readiness.ready ? 'var(--success)' : 'var(--warning)' }}
+                title={
+                  readiness.missing.length
+                    ? `Needs ${readiness.missing.join(', ')}`
+                    : 'Ready to run'
+                }
+              >
+                {readiness.ready ? 'ready' : `needs ${readiness.missing.join(', ')}`}
+              </span>
+            )}
           </div>
 
           <div className="kv">
@@ -104,6 +142,92 @@ export function ToolDrawer({
           </div>
 
           <div className="field">
+            <label htmlFor="drawer-prompt">
+              {tool.category === 'image' ? 'What should it say or show?' : 'Prompt or topic'}
+            </label>
+            <textarea
+              id="drawer-prompt"
+              className="input"
+              rows={3}
+              value={prompt}
+              placeholder="e.g. How I edit a week of content in one afternoon"
+              onChange={(event) => setPrompt(event.target.value)}
+            />
+            <span className="field__hint">
+              Everything is rendered locally with ffmpeg — no API key needed.
+            </span>
+          </div>
+
+          {wantsSource && (
+            <div className="field">
+              <label htmlFor="drawer-source">
+                {tool.id === 'video-downloader' ? 'Video URL' : 'Source text or URL (optional)'}
+              </label>
+              <input
+                id="drawer-source"
+                className="input"
+                value={sourceUrl}
+                placeholder={
+                  tool.id === 'video-downloader'
+                    ? 'https://www.youtube.com/watch?v=…'
+                    : 'Paste a transcript, caption text or a link'
+                }
+                onChange={(event) => setSourceUrl(event.target.value)}
+              />
+            </div>
+          )}
+
+          {(tool.category === 'video' || tool.category === 'image') && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <div className="field">
+                <label htmlFor="drawer-aspect">Aspect</label>
+                <select
+                  id="drawer-aspect"
+                  className="select"
+                  value={aspect}
+                  onChange={(event) => setAspect(event.target.value as RunAspect)}
+                >
+                  <option value="16:9">16:9 · landscape</option>
+                  <option value="9:16">9:16 · vertical</option>
+                  <option value="1:1">1:1 · square</option>
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="drawer-duration">Duration (s)</label>
+                <input
+                  id="drawer-duration"
+                  className="input"
+                  type="number"
+                  min={3}
+                  max={60}
+                  value={duration}
+                  onChange={(event) => setDuration(Number(event.target.value))}
+                />
+              </div>
+              {tool.id === 'thumbnail-generator' && (
+                <div className="field">
+                  <label htmlFor="drawer-variants">Variants</label>
+                  <input
+                    id="drawer-variants"
+                    className="input"
+                    type="number"
+                    min={1}
+                    max={6}
+                    value={variants}
+                    onChange={(event) => setVariants(Number(event.target.value))}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="field">
             <label htmlFor="drawer-title">Run title</label>
             <input
               id="drawer-title"
@@ -133,9 +257,14 @@ export function ToolDrawer({
         </div>
 
         <div className="drawer__foot">
-          <button type="button" className="btn btn--primary" onClick={startRun}>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => void startRun()}
+            disabled={starting}
+          >
             <Icon name="play" size={15} />
-            Start run
+            {starting ? 'Starting…' : 'Start run'}
           </button>
           <button type="button" className="btn" onClick={onClose}>
             Close
