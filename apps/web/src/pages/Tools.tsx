@@ -7,11 +7,11 @@ import { EmptyState } from '../components/EmptyState.tsx';
 
 const FILTERS: { id: ToolCategory | 'all'; label: string }[] = [
   { id: 'all', label: 'All tools' },
-  { id: 'video', label: CATEGORY_LABELS.video },
-  { id: 'image', label: CATEGORY_LABELS.image },
-  { id: 'audio', label: CATEGORY_LABELS.audio },
+  { id: 'strategy', label: CATEGORY_LABELS.strategy },
+  { id: 'script', label: CATEGORY_LABELS.script },
+  { id: 'seo', label: CATEGORY_LABELS.seo },
+  { id: 'production', label: CATEGORY_LABELS.production },
   { id: 'text', label: CATEGORY_LABELS.text },
-  { id: 'utility', label: CATEGORY_LABELS.utility },
 ];
 
 export function Tools({
@@ -34,7 +34,7 @@ export function Tools({
         tool.name.toLowerCase().includes(term) ||
         tool.summary.toLowerCase().includes(term) ||
         tool.id.includes(term) ||
-        tool.outputs.some((output) => output.toLowerCase().includes(term))
+        tool.deliverables.some((file) => file.toLowerCase().includes(term))
       );
     });
   }, [category, search, tools]);

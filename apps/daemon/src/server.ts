@@ -14,10 +14,7 @@ import type {
 } from '@open-creator/shared';
 import { JsonStore, SettingsStore, storePaths } from './store.ts';
 import { LlmClient } from './llm.ts';
-import { resolveFfmpeg, resolveOptional } from './media.ts';
-import { providerConfigured } from './provider.ts';
-import { imageCapability } from './imagegen.ts';
-import { RenderQueue, artifactsDir, executeRun, mimeFor } from './worker.ts';
+import { RunQueue, artifactsDir, executeRun, mimeFor } from './worker.ts';
 import { logger } from './logger.ts';
 import type { AppConfig } from './config.ts';
 
@@ -26,8 +23,6 @@ const MIME: Record<string, string> = {
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
   '.json': 'application/json; charset=utf-8',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
@@ -56,8 +51,8 @@ export class Daemon {
   private readonly startedAt = new Date();
   /** Resolves once the persisted state is in memory (and repaired if needed). */
   private readonly ready: Promise<void>;
-  /** Two renders at a time keeps ffmpeg from starving the HTTP server. */
-  private readonly queue = new RenderQueue(2, (runId) => this.executeRunById(runId));
+  /** Two documents at a time keeps the HTTP server responsive. */
+  private readonly queue = new RunQueue(2, (runId) => this.executeRunById(runId));
 
   private readonly config: AppConfig;
 
@@ -299,29 +294,26 @@ export class Daemon {
     return { deleted: true };
   }
 
-  /** What this machine can actually render right now. */
+  /** What this machine can do right now. */
   async capabilities(): Promise<Capabilities> {
     const settings = await this.settingsStore.get();
-    const [ffmpegInfo, ytDlp] = await Promise.all([resolveFfmpeg(), resolveOptional('yt-dlp')]);
-    const configured = providerConfigured(settings.llm);
+    const configured = Boolean(settings.llm.baseUrl && settings.llm.apiKey);
     const probe = configured
       ? await new LlmClient(settings.llm).probe()
       : { reachable: false, models: [] as string[] };
 
     const tools: Capabilities['tools'] = {};
     for (const tool of TOOLS) {
-      const missing: string[] = [];
-      if (tool.engine !== 'external' && !ffmpegInfo.available) missing.push('ffmpeg');
-      if (tool.engine === 'external' && !ytDlp.available) missing.push('yt-dlp');
-      if (tool.engine === 'provider' && !configured) missing.push('text + TTS provider');
-      tools[tool.id] = { ready: missing.length === 0, missing };
+      // Every tool runs offline: it writes documents, not renders.
+      tools[tool.id] = {
+        ready: true,
+        missing: [],
+        note: settings.useFreeRouter ? undefined : 'The agent chat is disabled; tools still work.',
+      };
     }
 
     return {
-      ffmpeg: ffmpegInfo,
-      ytDlp,
       provider: { configured, reachable: probe.reachable, models: probe.models },
-      images: imageCapability(settings),
       tools,
     };
   }
@@ -331,7 +323,6 @@ export class Daemon {
     if (!run) return;
     await executeRun(run, {
       dataDir: this.config.dataDir,
-      getSettings: () => this.settingsStore.get(),
       updateRun: async (id, patch) => {
         const current = this.runs.get(id);
         if (!current) return;
@@ -538,11 +529,14 @@ export class Daemon {
       if (!info.isFile()) throw new Error('not a file');
 
       const type = mimeFor(name);
+      // `?download=1` is what the studio's download button uses; browsers only
+      // save the file when the disposition is an attachment.
+      const download = new URLSearchParams(request.url?.split('?')[1] ?? '').has('download');
       const headers: Record<string, string> = {
         'content-type': type,
         'cache-control': 'private, max-age=300',
         'accept-ranges': 'bytes',
-        'content-disposition': `inline; filename="${name.replace(/"/g, '')}"`,
+        'content-disposition': `${download ? 'attachment' : 'inline'}; filename="${name.replace(/"/g, '')}"`,
       };
 
       const range = request.headers.range;
@@ -658,29 +652,22 @@ export class HttpError extends Error {
 /** Validate and normalise the JSON body of `POST /api/runs`. */
 function parseRunInput(body: Record<string, unknown>): RunInput {
   const text = (value: unknown): string | undefined =>
-    value === undefined || value === null ? undefined : String(value).slice(0, 8000);
+    value === undefined || value === null ? undefined : String(value).slice(0, 20_000);
 
-  const aspect =
-    body.aspect === '16:9' || body.aspect === '9:16' || body.aspect === '1:1'
-      ? body.aspect
-      : undefined;
-
-  const number = (value: unknown): number | undefined => {
-    if (value === undefined || value === null || value === '') return undefined;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  };
+  const fields: Record<string, string> = {};
+  if (body.fields && typeof body.fields === 'object') {
+    for (const [key, value] of Object.entries(body.fields as Record<string, unknown>)) {
+      const cleaned = text(value);
+      if (cleaned !== undefined && cleaned.trim() !== '') fields[key] = cleaned.trim();
+    }
+  }
 
   return {
     tool: String(body.tool ?? ''),
     projectId: text(body.projectId),
     title: text(body.title),
     prompt: text(body.prompt),
-    sourceUrl: text(body.sourceUrl),
-    language: text(body.language),
-    aspect,
-    durationSeconds: number(body.durationSeconds),
-    variants: number(body.variants),
+    fields,
   };
 }
 

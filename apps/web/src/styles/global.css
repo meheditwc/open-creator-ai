@@ -1449,3 +1449,100 @@ select {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Channel journey                                                            */
+/* -------------------------------------------------------------------------- */
+
+.journey {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.journey__step {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--surface);
+}
+
+.journey__index {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.journey__index > span {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.journey__label {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.journey__detail {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.journey__tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.journey__tool {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  background: var(--surface-2, rgba(255, 255, 255, 0.02));
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.journey__tool:hover {
+  border-color: var(--border-strong, var(--border));
+  transform: translateY(-1px);
+}
+
+.journey__tool-icon {
+  display: inline-flex;
+  margin-top: 1px;
+}
+
+.journey__tool-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.journey__tool-file {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+@media (max-width: 860px) {
+  .journey__step {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

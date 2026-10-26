@@ -61,12 +61,10 @@ const DEFAULT_SETTINGS: AppSettings = {
     apiKey: '',
     model: 'gpt-4o-mini',
     fastModel: 'gpt-4o-mini',
-    imageModel: '',
   },
   dataDir: '.runtime',
   useFreeRouter: true,
   autosave: true,
-  keylessImages: true,
 };
 
 /** Keep the offline cache in step with every mutation, not just creation. */

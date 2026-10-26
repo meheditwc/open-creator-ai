@@ -1,54 +1,46 @@
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-import type { AppSettings, Artifact, Run } from '@open-creator/shared';
+import type { Artifact, Run } from '@open-creator/shared';
 import { getTool } from '@open-creator/shared';
-import { RENDERERS, type ProducedFile, type RenderContext } from './renderers.ts';
-import { type ImageResult, generateImage, proceduralArt } from './imagegen.ts';
-import { resolveFfmpeg, resolveOptional } from './media.ts';
-import { providerConfigured, synthesizeSpeech, translateText } from './provider.ts';
 import {
-  buildShortScript,
-  cuesFromScript,
-  cuesFromText,
-  toSrt,
-  toVtt,
+  type Context,
+  buildArticle,
+  buildCalendar,
+  buildCaptions,
+  buildChannelBlueprint,
+  buildKeywordPlan,
+  buildNicheReport,
+  buildRoadmap,
+  buildSeoPack,
+  buildShortsScript,
+  buildThumbnailBrief,
+  buildUploadChecklist,
+  buildVideoScript,
   topicFrom,
-} from './creative.ts';
+} from './youtube.ts';
 import { logger } from './logger.ts';
-import { exec } from './media.ts';
 
 /**
  * The run worker.
  *
- * One run = one tool + the creator's input. The worker renders the deliverables
- * into `dataDir/artifacts/<runId>`, records every file as an artifact and
- * reports progress as it goes. Runs are executed with a small concurrency limit
- * so two heavy ffmpeg jobs never starve the HTTP server.
+ * A run turns the creator's answers into documents. Nothing here needs ffmpeg,
+ * a model or a network call: the generator writes real, editable files into
+ * `dataDir/artifacts/<runId>/`, and the daemon serves them back.
  */
 
 export interface WorkerDeps {
   dataDir: string;
-  getSettings: () => Promise<AppSettings>;
   updateRun: (runId: string, patch: Partial<Run>) => Promise<void>;
 }
 
-const MIME: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.gif': 'image/gif',
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.m4a': 'audio/mp4',
-  '.srt': 'application/x-subrip',
-  '.vtt': 'text/vtt',
+export const MIME: Record<string, string> = {
   '.md': 'text/markdown; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',
+  '.csv': 'text/csv; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
+  '.srt': 'application/x-subrip; charset=utf-8',
+  '.vtt': 'text/vtt; charset=utf-8',
 };
 
 export function mimeFor(name: string): string {
@@ -59,11 +51,133 @@ export function artifactsDir(dataDir: string): string {
   return join(dataDir, 'artifacts');
 }
 
-export interface QueueItem {
-  runId: string;
+interface Document {
+  name: string;
+  kind: Artifact['kind'];
+  content: string;
+  note?: string;
 }
 
-export class RenderQueue {
+type Generator = (context: Context, fields: Record<string, string>) => Document[];
+
+const GENERATORS: Record<string, Generator> = {
+  'niche-finder': (context) => {
+    const report = buildNicheReport(context);
+    return [
+      { name: 'niche-report.md', kind: 'text', content: report.markdown },
+      { name: 'niches.csv', kind: 'data', content: report.table },
+    ];
+  },
+
+  'channel-blueprint': (context, fields) => {
+    const blueprint = buildChannelBlueprint(context, fields.channelName ?? '');
+    return [
+      { name: 'channel-blueprint.md', kind: 'text', content: blueprint.markdown },
+      { name: 'channel-copy.json', kind: 'data', content: blueprint.json },
+    ];
+  },
+
+  'keyword-research': (context, fields) => {
+    const plan = buildKeywordPlan(context, fields.keywords ?? '');
+    return [
+      { name: 'keywords.csv', kind: 'data', content: plan.table },
+      { name: 'keyword-plan.md', kind: 'text', content: plan.markdown },
+    ];
+  },
+
+  'video-script': (context, fields) => {
+    const script = buildVideoScript(context, fields.length ?? '8 minutes');
+    return [
+      { name: 'script.md', kind: 'text', content: script.markdown },
+      { name: 'shot-list.csv', kind: 'data', content: script.shotList },
+      { name: 'captions.srt', kind: 'subtitle', content: toSrtFile(script.captions) },
+    ];
+  },
+
+  'shorts-script': (context, fields) => {
+    const script = buildShortsScript(context, fields.length ?? '30 seconds');
+    return [
+      { name: 'shorts-script.md', kind: 'text', content: script.markdown },
+      {
+        name: 'captions.srt',
+        kind: 'subtitle',
+        content: toSrtFile(script.captions),
+      },
+    ];
+  },
+
+  'youtube-seo': (context, fields) => {
+    const pack = buildSeoPack(context, fields.keywords ?? '');
+    return [
+      { name: 'seo-pack.md', kind: 'text', content: pack.markdown },
+      { name: 'metadata.json', kind: 'data', content: pack.json },
+    ];
+  },
+
+  'thumbnail-brief': (context, fields) => {
+    const brief = buildThumbnailBrief(context, fields.tone ?? 'Curious');
+    return [
+      { name: 'thumbnail-brief.md', kind: 'text', content: brief.markdown },
+      { name: 'overlay-text.txt', kind: 'text', content: brief.overlay },
+    ];
+  },
+
+  captions: (context, fields) => {
+    const pack = buildCaptions(
+      fields.script || context.topic,
+      Number.parseInt(fields.length ?? '3', 10) || 3,
+    );
+    return [
+      { name: 'captions.srt', kind: 'subtitle', content: pack.srt, note: `${pack.cueCount} cues` },
+      { name: 'captions.vtt', kind: 'subtitle', content: pack.vtt },
+      { name: 'chapters.md', kind: 'text', content: pack.chapters },
+    ];
+  },
+
+  'upload-checklist': (context) => {
+    const checklist = buildUploadChecklist(context);
+    return [
+      { name: 'upload-checklist.md', kind: 'text', content: checklist.markdown },
+      { name: 'checklist.json', kind: 'data', content: checklist.json },
+    ];
+  },
+
+  'content-calendar': (context, fields) => {
+    const calendar = buildCalendar(context, fields.length ?? '2');
+    return [
+      { name: 'calendar-30-days.csv', kind: 'data', content: calendar.table },
+      { name: 'calendar-plan.md', kind: 'text', content: calendar.markdown },
+    ];
+  },
+
+  'channel-roadmap': (context, fields) => {
+    const roadmap = buildRoadmap(context, fields.length ?? '5 hours', fields.niche ?? '');
+    return [{ name: 'roadmap.md', kind: 'text', content: roadmap }];
+  },
+
+  'article-writer': (context) => {
+    const article = buildArticle(context);
+    return [
+      { name: 'article.md', kind: 'text', content: article.markdown },
+      { name: 'article.html', kind: 'document', content: article.html },
+    ];
+  },
+};
+
+function toSrtFile(cues: { start: number; end: number; text: string }[]): string {
+  const stamp = (seconds: number) => {
+    const safe = Math.max(0, seconds);
+    const pad = (value: number) => String(Math.floor(value)).padStart(2, '0');
+    const ms = Math.round((safe % 1) * 1000);
+    return `${pad(safe / 3600)}:${pad((safe % 3600) / 60)}:${pad(safe % 60)},${String(ms).padStart(3, '0')}`;
+  };
+  return `${cues
+    .map((cue, index) => `${index + 1}\n${stamp(cue.start)} --> ${stamp(cue.end)}\n${cue.text}\n`)
+    .join('\n')}\n`;
+}
+
+/** Small concurrency gate: documents are cheap, but keep the loop predictable. */
+export class RunQueue {
   private readonly pending: string[] = [];
   private active = 0;
   private readonly concurrency: number;
@@ -77,10 +191,6 @@ export class RenderQueue {
   enqueue(runId: string): void {
     this.pending.push(runId);
     this.pump();
-  }
-
-  get size(): number {
-    return this.pending.length + this.active;
   }
 
   private pump(): void {
@@ -98,46 +208,41 @@ export class RenderQueue {
   }
 }
 
-/** A failure that the creator can act on, shown verbatim in the studio. */
-class SetupError extends Error {}
-
-async function collectArtifacts(
-  runId: string,
-  workDir: string,
-  files: ProducedFile[],
-): Promise<Artifact[]> {
-  const artifacts: Artifact[] = [];
-  for (const file of files) {
-    try {
-      const info = await stat(join(workDir, file.name));
-      artifacts.push({
-        id: `${runId}_${file.name}`,
-        name: file.name,
-        kind: file.kind,
-        mime: mimeFor(file.name),
-        bytes: info.size,
-        url: `/api/artifacts/${runId}/${encodeURIComponent(file.name)}`,
-        width: file.width,
-        height: file.height,
-        durationSeconds: file.durationSeconds,
-        note: file.note,
-        createdAt: new Date().toISOString(),
-      });
-    } catch {
-      logger.warn(`expected artifact ${file.name} was not written for run ${runId}`);
-    }
-  }
-  return artifacts;
+function contextFrom(run: Run): { context: Context; fields: Record<string, string> } {
+  const fields = run.input?.fields ?? {};
+  const topic = topicFrom(run.input?.prompt?.trim() || run.title, run.title);
+  return {
+    fields,
+    context: {
+      topic,
+      audience: fields.audience?.trim() ?? '',
+      market: fields.market?.trim() || 'English',
+      tone: fields.tone?.trim() || 'Friendly teacher',
+      notes: fields.notes?.trim() ?? '',
+    },
+  };
 }
 
-/** Execute a single run end to end. */
 export async function executeRun(run: Run, deps: WorkerDeps): Promise<void> {
   const tool = getTool(run.tool);
   if (!tool) {
     await deps.updateRun(run.id, {
       status: 'failed',
+      progress: 100,
+      message: 'Unknown tool.',
       error: `Unknown tool: ${run.tool}`,
-      message: 'That tool does not exist.',
+      updatedAt: new Date().toISOString(),
+    });
+    return;
+  }
+
+  const generator = GENERATORS[run.tool];
+  if (!generator) {
+    await deps.updateRun(run.id, {
+      status: 'failed',
+      progress: 100,
+      message: 'This tool has no generator yet.',
+      error: `No generator for ${run.tool}`,
       updatedAt: new Date().toISOString(),
     });
     return;
@@ -146,9 +251,9 @@ export async function executeRun(run: Run, deps: WorkerDeps): Promise<void> {
   const workDir = join(artifactsDir(deps.dataDir), run.id);
   await mkdir(workDir, { recursive: true });
 
-  const notes: string[] = [];
-  // Declared outside the try: the catch block reports these too.
-  const imageNotes: string[] = [];
+  const { context, fields } = contextFrom(run);
+  const steps = tool.pipeline;
+
   const report = async (progress: number, message: string) => {
     await deps.updateRun(run.id, {
       status: 'running',
@@ -158,321 +263,62 @@ export async function executeRun(run: Run, deps: WorkerDeps): Promise<void> {
     });
   };
 
-  await report(5, `Starting ${tool.name}…`);
-
   try {
-    const settings = await deps.getSettings();
-    const ffmpegInfo = await resolveFfmpeg();
-    if (tool.engine !== 'external' && !ffmpegInfo.available) {
-      throw new SetupError(
-        'ffmpeg is not installed on this machine. Run `npm run setup:media` (or install ffmpeg) and start the run again.',
-      );
+    await report(10, `Starting ${tool.name}…`);
+
+    // Walk the tool's own pipeline so the UI shows the real stages.
+    const span = 70 / Math.max(steps.length, 1);
+    for (const [index, step] of steps.entries()) {
+      await report(10 + span * index, `${step}…`);
     }
 
-    const ctx: RenderContext = {
-      ffmpegPath: ffmpegInfo.path ?? 'ffmpeg',
-      settings,
-      workDir,
-      report,
-      note: (message) => notes.push(message),
-      imageNotes,
-      makeImage: async (request): Promise<ImageResult> => {
-        try {
-          const result = await generateImage({
-            settings,
-            ffmpegPath: ffmpegInfo.path ?? 'ffmpeg',
-            request: {
-              prompt: request.prompt,
-              width: request.width,
-              height: request.height,
-              outPath: join(workDir, request.out),
-              style: request.style,
-            },
-            onFallback: (source, reason) => {
-              imageNotes.push(`${source} image generation unavailable: ${reason}`);
-              logger.warn(`[image] ${source} unavailable: ${reason}`);
-            },
-          });
-          return result;
-        } catch (error) {
-          // Last resort: never fail a run because an image tier misbehaved.
-          const reason = error instanceof Error ? error.message : String(error);
-          imageNotes.push(`image generation failed (${reason}) — using procedural art`);
-          return proceduralArt(ffmpegInfo.path ?? 'ffmpeg', {
-            prompt: request.prompt,
-            width: request.width,
-            height: request.height,
-            outPath: join(workDir, request.out),
-            palette: request.palette,
-          });
-        }
-      },
-    };
+    const documents = generator(context, fields);
+    if (!documents.length) throw new Error('The generator produced no documents.');
 
-    const input = {
-      prompt: run.input.prompt?.trim() || run.title,
-      sourceUrl: run.input.sourceUrl?.trim(),
-      language: run.input.language?.trim(),
-      aspect: run.input.aspect,
-      durationSeconds: run.input.durationSeconds,
-      variants: run.input.variants,
-      title: run.title,
-    };
-
-    let files: ProducedFile[] = [];
-
-    switch (run.tool) {
-      case 'voiceover':
-        files = await runVoiceover(run, deps, settings, ctx, input);
-        break;
-      case 'video-translation':
-        files = await runTranslation(run, deps, settings, ctx, input);
-        break;
-      case 'video-downloader':
-        files = await runDownloader(run, ctx, input);
-        break;
-      default: {
-        const renderer = RENDERERS[run.tool];
-        if (!renderer) throw new SetupError(`${tool.name} has no renderer yet on this machine.`);
-        files = await renderer(input, ctx);
-      }
+    const artifacts: Artifact[] = [];
+    for (const document of documents) {
+      const path = join(workDir, document.name);
+      await writeFile(path, document.content, 'utf8');
+      const info = await stat(path);
+      artifacts.push({
+        id: `${run.id}_${document.name}`,
+        name: document.name,
+        kind: document.kind,
+        mime: mimeFor(document.name),
+        bytes: info.size,
+        url: `/api/artifacts/${run.id}/${encodeURIComponent(document.name)}`,
+        note: document.note,
+        createdAt: new Date().toISOString(),
+      });
     }
 
-    await report(95, 'Collecting artifacts…');
-    const artifacts = await collectArtifacts(run.id, workDir, files);
+    const notes: string[] = [];
+    notes.push(
+      'Generated locally from your answers — edit the files in your own voice before publishing.',
+    );
+    if (!fields.audience) notes.push('Add an audience next time; the copy gets sharper.');
 
-    if (artifacts.length === 0) {
-      throw new SetupError('The run finished without producing any file — check the logs.');
-    }
-
-    const summary = `${artifacts.length} file${artifacts.length === 1 ? '' : 's'} ready`;
     await deps.updateRun(run.id, {
       status: 'completed',
       progress: 100,
-      message: `${summary} — ${artifacts
+      message: `${artifacts.length} file${artifacts.length === 1 ? '' : 's'} ready — ${artifacts
         .map((artifact) => artifact.name)
-        .slice(0, 3)
         .join(', ')}`,
       artifacts,
-      notes: [...new Set([...notes, ...imageNotes])],
+      notes,
       updatedAt: new Date().toISOString(),
     });
-    logger.success(`run ${run.id}: ${summary}`);
+    logger.success(`run ${run.id}: ${artifacts.length} document(s) written`);
   } catch (error) {
-    const message =
-      error instanceof SetupError
-        ? error.message
-        : error instanceof Error
-          ? error.message
-          : 'Unexpected render error';
+    const message = error instanceof Error ? error.message : 'Unexpected error';
     logger.warn(`run ${run.id} failed: ${message}`);
     await deps.updateRun(run.id, {
       status: 'failed',
       progress: 100,
       message: 'The run failed — see the details below.',
       error: message,
-      notes: [...new Set([...notes, ...imageNotes])],
+      notes: [],
       updatedAt: new Date().toISOString(),
     });
   }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Provider / external tools                                                   */
-/* -------------------------------------------------------------------------- */
-
-async function runVoiceover(
-  run: Run,
-  deps: WorkerDeps,
-  settings: AppSettings,
-  ctx: RenderContext,
-  input: { prompt: string; language?: string },
-): Promise<ProducedFile[]> {
-  const topic = topicFrom(input.prompt, run.title);
-  const script = buildShortScript(topic, Number(run.input.durationSeconds) || 18);
-  const cues = cuesFromScript(script);
-
-  await writeFile(
-    join(ctx.workDir, 'narration.md'),
-    [
-      `# ${script.title}`,
-      '',
-      ...script.beats.map(
-        (beat) =>
-          `**${beat.label}** (${beat.start.toFixed(1)}s → ${beat.end.toFixed(1)}s)\n${beat.text}\n`,
-      ),
-    ].join('\n'),
-    'utf8',
-  );
-  await writeFile(join(ctx.workDir, 'captions.srt'), toSrt(cues), 'utf8');
-
-  const files: ProducedFile[] = [
-    { name: 'narration.md', kind: 'text' },
-    { name: 'captions.srt', kind: 'subtitle' },
-  ];
-
-  if (!providerConfigured(settings.llm)) {
-    ctx.note(
-      'Script and timed captions are ready. The audio track needs a TTS provider — add a base URL + API key in Settings and run again.',
-    );
-    return files;
-  }
-
-  await ctx.report(45, 'Synthesizing the voice track…');
-  const text = script.beats.map((beat) => beat.text).join(' ');
-  await synthesizeSpeech(settings.llm, text, join(ctx.workDir, 'voiceover.mp3'), {
-    language: input.language,
-  });
-  files.unshift({ name: 'voiceover.mp3', kind: 'audio' });
-
-  const { resolveFfmpeg } = await import('./media.ts');
-  const ffmpegInfo = await resolveFfmpeg();
-  if (ffmpegInfo.available) {
-    await ctx.report(70, 'Muxing the waveform video…');
-    const { exec } = await import('./media.ts');
-    try {
-      await exec(
-        ffmpegInfo.path ?? 'ffmpeg',
-        [
-          '-y',
-          '-hide_banner',
-          '-loglevel',
-          'error',
-          '-i',
-          'voiceover.mp3',
-          '-f',
-          'lavfi',
-          '-i',
-          'color=c=0x120c22:s=1280x320',
-          '-shortest',
-          '-c:v',
-          'libx264',
-          '-preset',
-          'veryfast',
-          '-crf',
-          '28',
-          '-pix_fmt',
-          'yuv420p',
-          '-c:a',
-          'aac',
-          '-b:a',
-          '128k',
-          'voiceover.mp4',
-        ],
-        { cwd: ctx.workDir, timeoutMs: 180_000 },
-      );
-      files.push({ name: 'voiceover.mp4', kind: 'video', width: 1280, height: 320 });
-    } catch {
-      ctx.note('Audio is ready; muxing the MP4 preview failed, the mp3 is still available.');
-    }
-  }
-  return files;
-}
-
-async function runTranslation(
-  run: Run,
-  deps: WorkerDeps,
-  settings: AppSettings,
-  ctx: RenderContext,
-  input: { prompt: string; sourceUrl?: string; language?: string },
-): Promise<ProducedFile[]> {
-  const target = input.language || 'Spanish';
-  const source = input.sourceUrl || input.prompt;
-  const cues = cuesFromText(source, 3);
-
-  await ctx.report(35, 'Timing the source captions…');
-  await writeFile(join(ctx.workDir, 'source.srt'), toSrt(cues), 'utf8');
-
-  const files: ProducedFile[] = [{ name: 'source.srt', kind: 'subtitle' }];
-
-  if (!providerConfigured(settings.llm)) {
-    await writeFile(
-      join(ctx.workDir, 'translation-worksheet.md'),
-      [
-        `# Translation worksheet — ${target}`,
-        '',
-        'The timed source captions are ready. Translating them needs a text model.',
-        '',
-        '| # | Time | Source |',
-        '| --- | --- | --- |',
-        ...cues.map(
-          (cue, index) =>
-            `| ${index + 1} | ${cue.start.toFixed(1)}s–${cue.end.toFixed(1)}s | ${cue.text} |`,
-        ),
-        '',
-      ].join('\n'),
-      'utf8',
-    );
-    files.push({ name: 'translation-worksheet.md', kind: 'text' });
-    ctx.note(
-      `Captions are timed and ready. Add a text provider in Settings to translate them into ${target} and dub the voice track.`,
-    );
-    return files;
-  }
-
-  await ctx.report(55, `Translating into ${target}…`);
-  const translated = await Promise.all(
-    cues.map((cue) => translateText(settings.llm, cue.text, target)),
-  );
-  const translatedCues = cues.map((cue, index) => ({ ...cue, text: translated[index] }));
-  await writeFile(join(ctx.workDir, 'translated.srt'), toSrt(translatedCues), 'utf8');
-  await writeFile(join(ctx.workDir, 'translated.vtt'), toVtt(translatedCues), 'utf8');
-  files.push(
-    { name: 'translated.srt', kind: 'subtitle' },
-    { name: 'translated.vtt', kind: 'subtitle' },
-  );
-
-  await ctx.report(80, 'Synthesizing the dub…');
-  await synthesizeSpeech(
-    settings.llm,
-    translatedCues.map((cue) => cue.text).join(' '),
-    join(ctx.workDir, 'dub.mp3'),
-    { language: target },
-  );
-  files.push({ name: 'dub.mp3', kind: 'audio' });
-
-  ctx.note('Video re-render with the dub needs the source file on this machine.');
-  return files;
-}
-
-async function runDownloader(
-  run: Run,
-  ctx: RenderContext,
-  input: { sourceUrl?: string },
-): Promise<ProducedFile[]> {
-  const ytDlp = await resolveOptional('yt-dlp');
-  if (!ytDlp.available) {
-    throw new SetupError(
-      'yt-dlp is not installed. Install it (`pipx install yt-dlp`, or use the Docker image) and start the run again.',
-    );
-  }
-  if (!input.sourceUrl) {
-    throw new SetupError('Paste a video URL into the run before starting Video Downloader.');
-  }
-
-  await ctx.report(40, 'Resolving the URL…');
-  await writeFile(
-    join(ctx.workDir, 'download-request.json'),
-    `${JSON.stringify({ url: input.sourceUrl, requestedAt: new Date().toISOString() }, null, 2)}\n`,
-    'utf8',
-  );
-
-  await ctx.report(60, 'Downloading…');
-  await exec(
-    ytDlp.path ?? 'yt-dlp',
-    ['-f', 'bv*+ba/b', '--merge-output-format', 'mp4', '-o', 'source.%(ext)s', input.sourceUrl],
-    { cwd: ctx.workDir, timeoutMs: 900_000 },
-  );
-
-  const { readdir } = await import('node:fs/promises');
-  const entries = await readdir(ctx.workDir);
-  const video = entries.find((entry) => /^source\.(mp4|mkv|webm)$/.test(entry));
-  if (!video) throw new SetupError('The download finished but no video file was found.');
-
-  const files: ProducedFile[] = [
-    { name: video, kind: 'video' },
-    { name: 'download-request.json', kind: 'text' },
-  ];
-  void run;
-  return files;
 }

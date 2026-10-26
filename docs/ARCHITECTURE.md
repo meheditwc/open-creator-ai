@@ -104,12 +104,16 @@ writes give us durability for the data we actually store (projects, runs, settin
 zero install friction. The storage layer is behind `JsonStore`, so swapping in SQLite
 later is a contained change.
 
-**Why does the daemon simulate run progress?**
-The pipelines that do the real work need `ffmpeg`, `yt-dlp`, `whisper` and model
-providers — none of which can be assumed present. The daemon therefore models a run as
-a state machine (`queued → running → completed`) with honest messages about what a
-local worker would need to do. When a worker is wired in, it takes over the same
-transitions instead of replacing them.
+**Why are the generators pure functions?**
+Every tool is a channel-workflow document: a niche report, a script, an SEO pack, a
+caption file. None of that needs a binary or a model, so `apps/daemon/src/youtube.ts`
+builds it from the creator's answers plus a seeded selector (`hash(seed) % n`). The
+result is deterministic — the same answers always produce the same documents — which
+makes the output reviewable, diffable and testable, and means a run cannot fail because
+a provider is down. The worker still models the run as a state machine
+(`queued → running → completed`, with `failed` recording the exact error) so the UI has
+real progress to show, and each pipeline step in the tool catalogue is reported as it
+runs.
 
 **Why does the agent have a local planner?**
 Because a studio that answers _"configure an API key first"_ to a first-time user is a

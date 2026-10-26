@@ -1,8 +1,8 @@
 {
   "name": "open-creator-ai",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "Open-source AI workspace for creators \u2014 plan, generate and ship video, image and audio content with an agent-native studio.",
+  "description": "Open-source studio for running a YouTube channel end to end \u2014 niche, branding, keywords, scripts, SEO, uploads and growth, with every deliverable written as a real file.",
   "license": "Apache-2.0",
   "type": "module",
   "workspaces": [
@@ -20,7 +20,6 @@
     "start": "npm run start --workspace @open-creator/daemon",
     "typecheck": "npm run typecheck --workspace @open-creator/shared && npm run typecheck --workspace @open-creator/web",
     "clean": "rm -rf apps/web/dist apps/web/node_modules/.vite packages/shared/dist",
-    "setup:media": "node scripts/setup-media.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,css,md,json,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json,yml,yaml}\"",
     "lint": "eslint .",

@@ -1,146 +1,303 @@
 # Tool reference
 
-The catalogue in [`packages/shared/src/tools.ts`](../packages/shared/src/tools.ts) is the
-single source of truth. The UI, the API and this page are all generated from it.
+Twelve tools covering the whole channel workflow. Every one of them runs locally, deterministically and without a model, an API key or a binary — and writes the files listed under **Deliverables** into `.runtime/artifacts/<runId>/`.
 
-Status legend:
+Source of truth: [`packages/shared/src/tools.ts`](../packages/shared/src/tools.ts). Generators: [`apps/daemon/src/youtube.ts`](../apps/daemon/src/youtube.ts).
 
-| Status    | Meaning                                                                    |
-| --------- | -------------------------------------------------------------------------- |
-| `stable`  | Renders real files on your machine today (ffmpeg only, no provider needed) |
-| `beta`    | Produces the parts it can, and tells you exactly what is still missing     |
-| `planned` | Specified, not yet implemented                                             |
+## At a glance
+
+| Stage             | Tool                                             | Files                                         |
+| ----------------- | ------------------------------------------------ | --------------------------------------------- |
+| Start the channel | **Niche Finder** (`niche-finder`)                | `niche-report.md`, `niches.csv`               |
+| Start the channel | **Channel Blueprint** (`channel-blueprint`)      | `channel-blueprint.md`, `channel-copy.json`   |
+| Plan              | **Keyword Research** (`keyword-research`)        | `keywords.csv`, `keyword-plan.md`             |
+| Write             | **Video Script** (`video-script`)                | `script.md`, `shot-list.csv`, `captions.srt`  |
+| Write             | **Shorts Script** (`shorts-script`)              | `shorts-script.md`, `captions.srt`            |
+| Publish           | **YouTube SEO Pack** (`youtube-seo`)             | `seo-pack.md`, `metadata.json`                |
+| Publish           | **Thumbnail Brief** (`thumbnail-brief`)          | `thumbnail-brief.md`, `overlay-text.txt`      |
+| Publish           | **Captions & Chapters** (`captions`)             | `captions.srt`, `captions.vtt`, `chapters.md` |
+| Publish           | **Upload Checklist** (`upload-checklist`)        | `upload-checklist.md`, `checklist.json`       |
+| Plan              | **30-Day Content Calendar** (`content-calendar`) | `calendar-30-days.csv`, `calendar-plan.md`    |
+| Grow              | **Channel Roadmap** (`channel-roadmap`)          | `roadmap.md`                                  |
+| Grow              | **Blog & Community Post** (`article-writer`)     | `article.md`, `article.html`                  |
 
 ---
 
-## What runs on your machine
+## Niche Finder
 
-- **local** (renders locally with ffmpeg — no API key needed): Thumbnail Generator, Image Generation, Video Generation, Article Writer, Short Video Script, Stick Figure Animation, Subtitle Studio, Workflow Planner
-- **provider** (needs a text + TTS provider for the full output): Video Translation, Voiceover & Dubbing
-- **external** (needs an external binary on this machine): Video Downloader
+`niche-finder` · Start the channel · Strategy
 
-Every run writes its files to `<dataDir>/artifacts/<runId>/` and serves them at
-`/api/artifacts/<runId>/<file>`. Open a run in the studio to preview or download them.
+Pick a channel niche you can actually sustain: candidate niches, audience, competition, monetisation paths and the first videos to make.
+
+**Fields**
+
+- What are you good at, or what could you talk about for hours? *
+- Audience
+- Language / market (English / Bangla / Hindi / Urdu / Spanish / Arabic / Portuguese / Indonesian)
+
+**Pipeline**
+
+`interests` → `candidates` → `score` → `shortlist`
+
+**Deliverables**
+
+- `niche-report.md`
+- `niches.csv`
+
+## Channel Blueprint
+
+`channel-blueprint` · Start the channel · Strategy
+
+Everything the channel needs on day one: name ideas, handle, About section, trailer script, playlists and the settings checklist.
+
+**Fields**
+
+- Channel niche *
+- Audience
+- Name idea (optional)
+- Language / market (English / Bangla / Hindi / Urdu / Spanish / Arabic / Portuguese / Indonesian)
+
+**Pipeline**
+
+`naming` → `positioning` → `copy` → `settings`
+
+**Deliverables**
+
+- `channel-blueprint.md`
+- `channel-copy.json`
+
+## Keyword Research
+
+`keyword-research` · Plan · SEO
+
+Turn one topic into keyword clusters: primary, long-tail, question, comparison and Shorts keywords, with intent and competition.
+
+**Fields**
+
+- Seed topic or keyword *
+- Audience
+- Language / market (English / Bangla / Hindi / Urdu / Spanish / Arabic / Portuguese / Indonesian)
+- Keywords you already want (optional)
+
+**Pipeline**
+
+`seed` → `expand` → `classify` → `cluster`
+
+**Deliverables**
+
+- `keywords.csv`
+- `keyword-plan.md`
+
+## Video Script
+
+`video-script` · Write · Scripts
+
+A retention-first long-form script: hook, roadmap, sections with talking points and b-roll, mid CTA, outro — plus a shot list and captions.
+
+**Fields**
+
+- Video title or topic *
+- Audience
+- Target length (3 minutes / 5 minutes / 8 minutes / 12 minutes / 18 minutes)
+- Tone (Friendly teacher / Direct and no-fluff / Documentary / Funny / Motivational)
+- Anything to include or avoid (optional)
+
+**Pipeline**
+
+`hook` → `structure` → `sections` → `shot-list` → `captions`
+
+**Deliverables**
+
+- `script.md`
+- `shot-list.csv`
+- `captions.srt`
+
+## Shorts Script
+
+`shorts-script` · Write · Scripts
+
+A 20–60 second vertical script with hook, three beats, on-screen text and a CTA, timed line by line for the edit.
+
+**Fields**
+
+- Shorts topic *
+- Duration (20 seconds / 30 seconds / 45 seconds / 60 seconds)
+- Tone (Friendly teacher / Direct and no-fluff / Documentary / Funny / Motivational)
+- Audience
+
+**Pipeline**
+
+`angle` → `hook` → `beats` → `timing`
+
+**Deliverables**
+
+- `shorts-script.md`
+- `captions.srt`
+
+## YouTube SEO Pack
+
+`youtube-seo` · Publish · SEO
+
+Title options, a full description with chapters, tags, hashtags, pinned comment and end-screen copy — ready to paste into YouTube Studio.
+
+**Fields**
+
+- Video title or topic *
+- Target keywords (optional)
+- Audience
+- Language / market (English / Bangla / Hindi / Urdu / Spanish / Arabic / Portuguese / Indonesian)
+
+**Pipeline**
+
+`keywords` → `titles` → `description` → `tags` → `chapters`
+
+**Deliverables**
+
+- `seo-pack.md`
+- `metadata.json`
+
+## Thumbnail Brief
+
+`thumbnail-brief` · Publish · Production
+
+The brief a designer (or you) needs: three concepts, exact overlay text, face and colour direction, and an A/B test plan.
+
+**Fields**
+
+- Video title *
+- Audience
+- Mood (Curious / Shocked / Calm and premium / Funny / Urgent)
+
+**Pipeline**
+
+`promise` → `concepts` → `overlay-text` → `a-b-test`
+
+**Deliverables**
+
+- `thumbnail-brief.md`
+- `overlay-text.txt`
+
+## Captions & Chapters
+
+`captions` · Publish · Production
+
+Paste or write a script and get timed SRT/VTT captions plus YouTube-style chapters and a description-ready transcript.
+
+**Fields**
+
+- Script or transcript *
+- Seconds per caption line (2 / 3 / 4 / 5)
+
+**Pipeline**
+
+`split` → `time` → `export`
+
+**Deliverables**
+
+- `captions.srt`
+- `captions.vtt`
+- `chapters.md`
+
+## Upload Checklist
+
+`upload-checklist` · Publish · Production
+
+The exact publish run: Studio settings, metadata, cards, end screen, subtitles, then the first hour, first 24 hours and first week.
+
+**Fields**
+
+- Video title *
+- Audience
+
+**Pipeline**
+
+`pre-upload` → `studio` → `post-upload` → `first-week`
+
+**Deliverables**
+
+- `upload-checklist.md`
+- `checklist.json`
+
+## 30-Day Content Calendar
+
+`content-calendar` · Plan · Strategy
+
+A month of uploads mapped out: titles, series, keywords, shorts cut from each long video and the publish days.
+
+**Fields**
+
+- Niche *
+- Uploads per week (1 / 2 / 3)
+- Audience
+- Language / market (English / Bangla / Hindi / Urdu / Spanish / Arabic / Portuguese / Indonesian)
+
+**Pipeline**
+
+`pillars` → `schedule` → `titles` → `shorts`
+
+**Deliverables**
+
+- `calendar-30-days.csv`
+- `calendar-plan.md`
+
+## Channel Roadmap
+
+`channel-roadmap` · Grow · Strategy
+
+From zero to monetisation: what to do in week 1, month 1, month 3 and month 6, with the metrics that matter at each stage.
+
+**Fields**
+
+- Goal *
+- Niche (optional)
+- Time you can give per week (2 hours / 5 hours / 10 hours / 20+ hours)
+
+**Pipeline**
+
+`goal` → `phases` → `metrics` → `review`
+
+**Deliverables**
+
+- `roadmap.md`
+
+## Blog & Community Post
+
+`article-writer` · Grow · Text
+
+Turn a video into a blog post or community post, so the same idea earns search traffic and keeps the channel active.
+
+**Fields**
+
+- Topic *
+- Audience
+- Tone (Friendly teacher / Direct and no-fluff / Documentary / Funny / Motivational)
+
+**Pipeline**
+
+`outline` → `draft` → `export`
+
+**Deliverables**
+
+- `article.md`
+- `article.html`
 
 ---
 
-## Video Translation
+## Using a tool from the API
 
-Transcribe a source video, translate the subtitles, dub the voice track and export a new video.
+```bash
+curl -s http://127.0.0.1:9861/api/runs \
+  -H 'content-type: application/json' \
+  -d '{
+    "tool": "video-script",
+    "prompt": "how I batch a month of videos in two days",
+    "fields": { "audience": "solo creators", "length": "8 minutes", "tone": "Direct" }
+  }'
+```
 
-- **Status** — `beta` · **category** — Video
-- **Runs** — needs a text + TTS provider for the full output
-- **Inputs** — Video file or URL · Source language (auto-detect) · Target language
-- **Pipeline** — `download → transcribe → translate → dub → render`
-- **Outputs** — Translated video · SRT subtitles · Dubbed audio track
-- **Requires** — `ffmpeg`, `whisper`, `text + TTS provider`
+The response is the queued run. Poll `GET /api/runs/<id>` until `status` is `completed`;
+`artifacts[]` then lists every file with its `url`, `mime` and byte size. Files are served
+from `GET /api/artifacts/<runId>/<name>` (add `?download=1` for an attachment).
 
-## Video Downloader
-
-Pull source material from YouTube, Bilibili, TikTok, Instagram, Douyin and 100+ other platforms.
-
-- **Status** — `beta` · **category** — Video
-- **Runs** — needs an external binary on this machine
-- **Inputs** — Video URL
-- **Pipeline** — `resolve → download`
-- **Outputs** — Source video file · Metadata JSON
-- **Requires** — `yt-dlp`
-
-## Thumbnail Generator
-
-Produce several click-worthy thumbnail variations from a title, a frame or a reference image.
-
-- **Status** — `stable` · **category** — Image
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Title · Optional reference image · Target aspect ratio
-- **Pipeline** — `prompt → generate → rank`
-- **Outputs** — 3–6 thumbnail PNGs · Prompt log
-- **Requires** — `ffmpeg`
-
-## Image Generation
-
-Create illustrations, covers and b-roll stills from a prompt, with optional reference control.
-
-- **Status** — `stable` · **category** — Image
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Prompt · Optional reference image · Aspect ratio
-- **Pipeline** — `prompt → generate`
-- **Outputs** — Generated image · Prompt log
-- **Requires** — `ffmpeg`
-
-## Video Generation
-
-Generate short clips from text or a still image, then trim and caption them.
-
-- **Status** — `stable` · **category** — Video
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Prompt or image · Duration · Aspect ratio
-- **Pipeline** — `prompt → generate → caption`
-- **Outputs** — Video clip · Optional subtitle file
-- **Requires** — `ffmpeg`
-
-## Article Writer
-
-Turn a topic, a link or a video into a structured, editable long-form article.
-
-- **Status** — `stable` · **category** — Text
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Topic, links or video · Audience · Target length
-- **Pipeline** — `research → outline → draft → export`
-- **Outputs** — Markdown · HTML · PDF
-- **Requires** — nothing outside the studio
-
-## Short Video Script
-
-Write a shoot-ready, segmented script with hooks, beats and shot directions for short form.
-
-- **Status** — `stable` · **category** — Text
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Topic · Platform · Audience · Duration
-- **Pipeline** — `angle → segments → polish`
-- **Outputs** — Segmented script · Shot list · Caption ideas
-- **Requires** — `ffmpeg`
-
-## Stick Figure Animation
-
-Turn a script or a YouTube link into narration, voiceover, storyboard, subtitles and video.
-
-- **Status** — `stable` · **category** — Video
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Script or URL · Voice style · Aspect ratio
-- **Pipeline** — `script → narration → storyboard → render`
-- **Outputs** — Narration audio · Subtitles · Animated video
-- **Requires** — `ffmpeg`
-
-## Voiceover & Dubbing
-
-Generate expressive voice-overs and dub existing videos in another language.
-
-- **Status** — `beta` · **category** — Audio
-- **Runs** — needs a text + TTS provider for the full output
-- **Inputs** — Text or subtitles · Voice · Emotion · Speed
-- **Pipeline** — `chunk → synthesize → align`
-- **Outputs** — Audio track · Aligned subtitles
-- **Requires** — `text + TTS provider`, `ffmpeg`
-
-## Subtitle Studio
-
-Transcribe, translate, burn in or re-time subtitles with bilingual and short-form presets.
-
-- **Status** — `stable` · **category** — Utility
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Media file or URL · Languages · Style preset
-- **Pipeline** — `transcribe → translate → style → render`
-- **Outputs** — SRT / VTT · Burned-in video · Bilingual track
-- **Requires** — `ffmpeg`
-
-## Workflow Planner
-
-Describe an outcome and get a sequenced, tool-aware plan you can execute step by step.
-
-- **Status** — `stable` · **category** — Utility
-- **Runs** — renders locally with ffmpeg — no API key needed
-- **Inputs** — Goal · Constraints · Deadline
-- **Pipeline** — `decompose → map-tools → schedule`
-- **Outputs** — Step-by-step plan · Tool checklist
-- **Requires** — nothing outside the studio
+Fields marked with an asterisk are required. Anything omitted falls back to a sensible
+default, so a run with just a `prompt` still produces complete documents.

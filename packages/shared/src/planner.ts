@@ -2,7 +2,7 @@ import { TOOLS } from './tools.ts';
 import type { ToolDefinition } from './types.ts';
 
 export const AGENT_SYSTEM_PROMPT = `You are the Open Creator AI studio assistant.
-You help creators turn an idea into finished video, image and audio content.
+You help creators run a YouTube channel end to end: pick a niche, set the channel up, research keywords, write scripts, publish with SEO, and grow.
 
 Rules:
 - Answer with a short, concrete plan: goal, steps, tools, and the first action.
@@ -17,28 +17,25 @@ interface Intent {
 }
 
 const KEYWORDS: Record<string, string[]> = {
-  'video-translation': [
-    'translate',
-    'dub',
-    'subtitl',
-    'language',
-    'hindi',
-    'spanish',
-    'french',
-    'portuguese',
-    'japanese',
-    'korean',
+  'niche-finder': ['niche', 'topic', 'idea', 'what should i make', 'choose', 'pick a channel'],
+  'channel-blueprint': [
+    'channel name',
+    'banner',
+    'about section',
+    'branding',
+    'setup',
+    'start a channel',
   ],
-  'video-downloader': ['download', 'youtube', 'bilibili', 'tiktok', 'instagram', 'douyin', 'url'],
-  'thumbnail-generator': ['thumbnail', 'cover', 'click', 'ctr', 'banner'],
-  'image-generation': ['image', 'picture', 'illustration', 'poster', 'art', 'meme', 'photo'],
-  'video-generation': ['generate video', 'clip', 'animation', 'b-roll', 'broll'],
-  'article-writer': ['article', 'blog', 'post', 'newsletter', 'seo', 'readme'],
-  'short-script': ['script', 'short', 'reels', 'hook', 'caption'],
-  'stick-figure': ['stick figure', 'animation', 'storyboard', 'narration'],
-  voiceover: ['voice', 'voiceover', 'tts', 'speech', 'narration', 'audio', 'dubbing'],
-  'subtitle-studio': ['subtitle', 'srt', 'caption', 'transcribe'],
-  'workflow-planner': ['plan', 'workflow', 'roadmap', 'steps', 'strategy', 'schedule'],
+  'keyword-research': ['keyword', 'search volume', 'ranking', 'tag', 'competition'],
+  'content-calendar': ['calendar', 'schedule', 'plan my uploads', 'consistency', 'batch'],
+  'video-script': ['script', 'hook', 'long form', 'voiceover', 'intro', 'outro'],
+  'shorts-script': ['short', 'reels', 'shorts', 'tiktok clip'],
+  'youtube-seo': ['seo', 'title', 'description', 'metadata', 'ctr', 'ranking'],
+  'thumbnail-brief': ['thumbnail', 'cover', 'overlay text'],
+  captions: ['caption', 'srt', 'subtitle', 'transcribe', 'vtt'],
+  'upload-checklist': ['upload', 'publish', 'checklist', 'before posting'],
+  'channel-roadmap': ['grow', 'subscribers', 'roadmap', 'monetis', 'monetiz', 'analytics'],
+  'article-writer': ['article', 'blog', 'post', 'newsletter', 'repurpose'],
 };
 
 function detectIntent(message: string): Intent {
@@ -60,33 +57,49 @@ function detectIntent(message: string): Intent {
 }
 
 const STEP_DETAILS: Record<string, string> = {
-  download: 'Fetch the source media and its metadata.',
-  resolve: 'Resolve the URL and pick the best quality source.',
-  transcribe: 'Turn the audio into timed text segments.',
-  translate: 'Translate each segment while keeping the timing.',
-  dub: 'Synthesize the translated speech and mix it with the source.',
-  render: 'Compose and encode the final file.',
-  prompt: 'Write the generation prompt with the style and constraints.',
-  generate: 'Run the model and collect the outputs.',
-  rank: 'Score the variations and keep the strongest.',
-  caption: 'Add captions that match the spoken audio.',
-  research: 'Collect the facts and the references.',
+  interests: 'List what you can talk about for hours, then group it.',
+  candidates: 'Turn each interest into a concrete channel angle.',
+  score: 'Score demand, competition and how long you can sustain it.',
+  shortlist: 'Keep the two or three angles worth testing first.',
+  niche: 'Lock the niche, the promise and the person you serve.',
+  naming: 'Pick a name that is spellable, searchable and not taken.',
+  branding: 'Write the tagline, about copy and banner text.',
+  identity: 'Set the colours, fonts and thumbnail style.',
+  launch: 'Define what the first three uploads must prove.',
+  seed: 'Start from one clear topic, not a keyword dump.',
+  expand: 'Grow into related phrases people actually type.',
+  cluster: 'Group keywords into video-sized clusters.',
+  titles: 'Turn clusters into titles that earn the click.',
+  pillars: 'Choose three to four repeatable content pillars.',
+  cadence: 'Set an upload rhythm you can keep for 90 days.',
+  slots: 'Fill 30 days of slots with real working titles.',
+  hook: 'Write the first five seconds before anything else.',
+  structure: 'Lay out sections with timestamps.',
+  body: 'Write what is actually said, beat by beat.',
+  cta: 'Place one mid-roll and one end call to action.',
+  beats: 'Break the idea into 3-second beats.',
+  overlay: 'Write the on-screen text word for word.',
+  metadata: 'Write the title, description, tags and chapters.',
+  chapters: 'Mark the chapters so viewers can jump around.',
+  tags: 'Keep tags honest and specific.',
+  concept: 'Choose one idea worth a stranger clicking.',
+  layout: 'Describe the composition, subject and text placement.',
+  overlaytext: 'Cap the overlay at five words.',
+  readability: 'Check it survives a phone-sized thumbnail.',
+  segment: 'Split the script into caption-sized segments.',
+  timestamp: 'Time each cue so the reading speed stays natural.',
+  export: 'Export both SRT and VTT.',
+  preflight: 'Check audio, video, captions and rights.',
+  metadatafill: 'Fill every metadata field before the upload.',
+  publish: 'Publish, then set the end screen and cards.',
+  audit: 'Look at the first 24 hours of data.',
+  milestones: 'Set 30, 90 and 180 day milestones.',
+  systems: 'Build the repeatable systems: batching, analytics, review.',
+  monetise: 'List the income paths available at your size.',
   outline: 'Structure the article before writing.',
-  draft: 'Write the full piece in the target voice.',
-  export: 'Export to the format you need.',
-  angle: 'Pick the angle and hook.',
-  segments: 'Break the script into shootable beats.',
-  polish: 'Tighten the wording and pacing.',
-  script: 'Turn the idea into a timed narration script.',
-  narration: 'Record the narration audio.',
-  storyboard: 'Draw the shot list for every beat.',
-  chunk: 'Split the text into speakable chunks.',
-  synthesize: 'Generate the voice track.',
-  align: 'Re-sync the audio with the visuals.',
-  style: 'Apply the caption style preset.',
-  decompose: 'Break the goal into concrete deliverables.',
-  'map-tools': 'Attach the right studio tool to every step.',
-  schedule: 'Order the steps and estimate the effort.',
+  draft: 'Write the full piece in your voice.',
+  embed: 'Add the video embed and internal links.',
+  exportarticle: 'Export to Markdown and HTML.',
 };
 
 function describeStep(step: string, tool: ToolDefinition): string {
@@ -130,23 +143,20 @@ export function localAgentReply(message: string): { reply: string; suggestions: 
     .map((step, index) => `${index + 1}. **${step}** — ${describeStep(step, tool)}`)
     .join('\n');
 
-  const requirements = tool.requires.length ? `\n\n**Needs:** ${tool.requires.join(', ')}` : '';
-
   return {
     reply: [
-      `**${tool.name}** is the right tool for that.`,
+      `**${tool.name}** is the right tool for that — it sits in the *${tool.stage}* stage of the channel workflow.`,
       '',
-      '**Inputs I need**',
-      ...tool.inputs.map((input) => `- ${input}`),
+      '**What I need from you**',
+      ...tool.fields.map((field) => `- ${field.label}${field.required ? ' *(required)*' : ''}`),
       '',
-      '**Pipeline**',
+      '**How it runs**',
       steps,
       '',
-      '**Output**',
-      ...tool.outputs.map((output) => `- ${output}`),
-      requirements,
+      '**Files you get**',
+      ...tool.deliverables.map((file) => `- \`${file}\``),
       '',
-      'Give me the source and I will start the first step.',
+      'Open the tool, fill the fields and press generate — everything is written locally, no API key needed.',
     ].join('\n'),
     suggestions: [
       `Start a ${tool.name} run`,

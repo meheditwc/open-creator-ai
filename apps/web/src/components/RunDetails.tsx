@@ -5,13 +5,23 @@ import { Icon } from './Icon.tsx';
 import { relativeTime } from '../lib/format.ts';
 
 const KIND_LABEL: Record<Artifact['kind'], string> = {
-  image: 'Image',
-  video: 'Video',
-  audio: 'Audio',
-  text: 'Text',
+  text: 'Markdown',
   subtitle: 'Subtitles',
-  document: 'Document',
+  data: 'Data',
+  document: 'HTML',
 };
+
+/** Copy/download a whole file, not just the preview. */
+async function copyArtifact(url: string, notify: (m: string, k?: 'success' | 'error') => void) {
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    await navigator.clipboard.writeText(text);
+    notify('Copied to clipboard', 'success');
+  } catch {
+    notify('Could not copy — open the file instead', 'error');
+  }
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -23,40 +33,28 @@ function ArtifactPreview({ artifact }: { artifact: Artifact }): JSX.Element {
   const [text, setText] = useState<string | null>(null);
 
   useEffect(() => {
-    if (artifact.kind !== 'text' && artifact.kind !== 'subtitle') return;
     let cancelled = false;
     void fetch(artifact.url)
       .then((response) => (response.ok ? response.text() : ''))
       .then((value) => {
-        if (!cancelled) setText(value.slice(0, 1600));
+        if (!cancelled) setText(value.slice(0, 2400));
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [artifact.kind, artifact.url]);
+  }, [artifact.url]);
 
-  if (artifact.kind === 'image') {
+  if (artifact.mime === 'text/html; charset=utf-8') {
     return (
-      <img
+      <iframe
         className="artifact__media"
         src={artifact.url}
-        alt={artifact.name}
-        loading="lazy"
-        style={{
-          aspectRatio:
-            artifact.width && artifact.height ? `${artifact.width}/${artifact.height}` : undefined,
-        }}
+        title={artifact.name}
+        sandbox=""
+        style={{ height: 240, border: 0, background: '#fff' }}
       />
     );
-  }
-
-  if (artifact.kind === 'video') {
-    return <video className="artifact__media" src={artifact.url} controls preload="metadata" />;
-  }
-
-  if (artifact.kind === 'audio') {
-    return <audio src={artifact.url} controls preload="metadata" className="artifact__audio" />;
   }
 
   return <pre className="artifact__text">{text ?? 'Loading preview…'}</pre>;
@@ -122,7 +120,7 @@ export function RunDetails({ run, onClose }: { run: Run; onClose: () => void }):
                 <div className="progress__bar" style={{ width: `${run.progress}%` }} />
               </div>
               <p className="faint" style={{ fontSize: 12.5, marginTop: 8 }}>
-                Rendering… {run.progress}%
+                Writing files… {run.progress}%
               </p>
             </div>
           )}
@@ -163,19 +161,26 @@ export function RunDetails({ run, onClose }: { run: Run; onClose: () => void }):
                     </div>
                     <div className="faint" style={{ fontSize: 11.5 }}>
                       {KIND_LABEL[artifact.kind]} · {formatBytes(artifact.bytes)}
-                      {artifact.width && artifact.height
-                        ? ` · ${artifact.width}×${artifact.height}`
-                        : ''}
                     </div>
                   </div>
-                  <a
-                    className="btn btn--icon btn--ghost"
-                    href={`${artifact.url}?download=1`}
-                    download={artifact.name}
-                    title={`Download ${artifact.name}`}
-                  >
-                    <Icon name="download" size={15} />
-                  </a>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    <button
+                      type="button"
+                      className="btn btn--icon btn--ghost"
+                      onClick={() => void copyArtifact(artifact.url, notify)}
+                      title={`Copy ${artifact.name}`}
+                    >
+                      <Icon name="copy" size={15} />
+                    </button>
+                    <a
+                      className="btn btn--icon btn--ghost"
+                      href={`${artifact.url}?download=1`}
+                      download={artifact.name}
+                      title={`Download ${artifact.name}`}
+                    >
+                      <Icon name="download" size={15} />
+                    </a>
+                  </div>
                 </div>
                 <ArtifactPreview artifact={artifact} />
                 {artifact.note && (

@@ -29,7 +29,13 @@ export type IconName =
   | 'figure'
   | 'mic'
   | 'captions'
-  | 'compass';
+  | 'compass'
+  | 'target'
+  | 'key'
+  | 'calendar'
+  | 'checklist'
+  | 'growth'
+  | 'copy';
 
 const PATHS: Record<IconName, JSX.Element> = {
   dashboard: (
@@ -171,6 +177,43 @@ const PATHS: Record<IconName, JSX.Element> = {
     <>
       <rect x="3" y="5" width="18" height="14" rx="3" />
       <path d="M8 11.5h3M14 11.5h3M8 15h2M12.5 15h4.5" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.5" />
+      <path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="1" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="8" cy="15" r="3.5" />
+      <path d="M10.5 12.5 19 4M16.5 6.5 19 9M14 9l2.5 2.5" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 9.5h17M8 3.5V6M16 3.5V6" />
+    </>
+  ),
+  checklist: (
+    <>
+      <path d="M4 6.5l2 2 3-3.5M4 12.5l2 2 3-3.5M4 18.5l2 2 3-3.5" />
+      <path d="M13 7h7M13 13h7M13 19h7" />
+    </>
+  ),
+  growth: (
+    <>
+      <path d="M3.5 19.5h17" />
+      <path d="M6.5 16V10M11 16V6.5M15.5 16v-4M20 16V8.5" />
     </>
   ),
   compass: (

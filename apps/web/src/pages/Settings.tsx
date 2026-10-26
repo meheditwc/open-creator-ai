@@ -11,8 +11,6 @@ export function Settings(): JSX.Element {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
   const [fastModel, setFastModel] = useState('');
-  const [imageModel, setImageModel] = useState('');
-  const [keylessImages, setKeylessImages] = useState(true);
   const [useFreeRouter, setUseFreeRouter] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -22,8 +20,6 @@ export function Settings(): JSX.Element {
     setApiKey(settings.llm.apiKey);
     setModel(settings.llm.model);
     setFastModel(settings.llm.fastModel);
-    setImageModel(settings.llm.imageModel ?? '');
-    setKeylessImages(settings.keylessImages !== false);
     setUseFreeRouter(settings.useFreeRouter);
   }, [settings]);
 
@@ -31,9 +27,8 @@ export function Settings(): JSX.Element {
     event.preventDefault();
     setSaving(true);
     await saveSettings({
-      llm: { baseUrl, apiKey, model, fastModel, imageModel },
+      llm: { baseUrl, apiKey, model, fastModel },
       useFreeRouter,
-      keylessImages,
     });
     setSaving(false);
     await refresh();
@@ -104,37 +99,7 @@ export function Settings(): JSX.Element {
                 onChange={(event) => setFastModel(event.target.value)}
               />
             </div>
-            <div className="field">
-              <label htmlFor="image-model">Image model</label>
-              <input
-                id="image-model"
-                className="input"
-                value={imageModel}
-                placeholder="gpt-image-1 · flux-1.1-pro"
-                onChange={(event) => setImageModel(event.target.value)}
-              />
-              <span className="field__hint">
-                Used for thumbnails, cover art and video backdrops via /images/generations.
-              </span>
-            </div>
           </div>
-
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              fontSize: 13.5,
-              marginBottom: 14,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={keylessImages}
-              onChange={(event) => setKeylessImages(event.target.checked)}
-            />
-            Use the keyless image service when no image model is configured
-          </label>
 
           <label
             style={{

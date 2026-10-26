@@ -89,6 +89,22 @@ test('the real studio entry bundles and renders with one compatible React copy',
     delete globalThis.IS_REACT_ACT_ENVIRONMENT;
   }
 
+  const markup = dom.window.document.querySelector('#root').innerHTML;
+
+  // The dashboard is the channel journey now, not a media gallery.
+  for (const expected of [
+    'Channel banano theke',
+    'channel journey',
+    'Niche Finder',
+    'Video Script',
+    'niche-report.md',
+  ]) {
+    assert.ok(markup.includes(expected), `the dashboard renders "${expected}"`);
+  }
+  for (const gone of ['Thumbnail Generator', 'Image Generation', 'Video Downloader']) {
+    assert.ok(!markup.includes(gone), `the dashboard no longer advertises "${gone}"`);
+  }
+
   assert.doesNotMatch(
     errorMessages.join('\n'),
     /Incompatible React versions|older version of React/i,

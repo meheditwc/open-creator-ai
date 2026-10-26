@@ -36,14 +36,11 @@ export type RunStatus = 'queued' | 'running' | 'completed' | 'failed';
 export interface Artifact {
   id: string;
   name: string;
-  kind: 'image' | 'video' | 'audio' | 'text' | 'subtitle' | 'document';
+  kind: 'text' | 'subtitle' | 'data' | 'document';
   mime: string;
   bytes: number;
   /** Relative URL served by the daemon, e.g. `/api/artifacts/run_x/clip.mp4`. */
   url: string;
-  width?: number;
-  height?: number;
-  durationSeconds?: number;
   note?: string;
   createdAt: string;
 }
@@ -69,30 +66,19 @@ export interface Run {
   updatedAt: string;
 }
 
-export type RunAspect = '16:9' | '9:16' | '1:1';
-
 export interface RunInput {
   projectId?: string;
   tool: string;
   title?: string;
-  /** The creator's prompt / topic. */
+  /** The primary text: a topic, a video title or a script. */
   prompt?: string;
-  /** A source URL or pasted text (subtitles, narration, transcript). */
-  sourceUrl?: string;
-  language?: string;
-  aspect?: RunAspect;
-  durationSeconds?: number;
-  /** How many variants to render where the tool supports it. */
-  variants?: number;
+  /** Answers to the tool's own fields (audience, market, tone, …). */
+  fields?: Record<string, string>;
 }
 
 /** What this machine can actually do right now. */
 export interface Capabilities {
-  ffmpeg: { available: boolean; version?: string; path?: string; error?: string };
-  ytDlp: { available: boolean; version?: string; error?: string };
   provider: { configured: boolean; reachable: boolean; models: string[] };
-  /** Which image tier a run will use right now. */
-  images: { provider: boolean; keyless: boolean; effective: 'provider' | 'keyless' | 'local' };
   tools: Record<string, { ready: boolean; missing: string[]; note?: string }>;
 }
 
@@ -100,34 +86,53 @@ export interface Capabilities {
 /* Tools                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export type ToolCategory = 'video' | 'image' | 'audio' | 'text' | 'utility';
+export type ToolCategory = 'strategy' | 'script' | 'seo' | 'production' | 'text';
 
 export type ToolStatus = 'stable' | 'beta' | 'planned';
 
 export type ToolIcon =
-  | 'translate'
-  | 'download'
-  | 'image'
-  | 'film'
-  | 'article'
+  | 'compass'
+  | 'target'
+  | 'key'
+  | 'search'
   | 'clapper'
-  | 'figure'
-  | 'mic'
+  | 'calendar'
+  | 'checklist'
+  | 'growth'
   | 'captions'
-  | 'compass';
+  | 'article';
 
 export interface ToolCapability {
   label: string;
   detail: string;
 }
 
-/**
- * How a tool actually runs:
- * - `local`    — renders real files on this machine with ffmpeg, no provider.
- * - `provider` — needs a model provider for the interesting part.
- * - `external` — needs another binary on the machine (yt-dlp, whisper…).
- */
-export type ToolEngine = 'local' | 'provider' | 'external';
+/** Where the tool sits in the channel journey. */
+export type ToolStage = 'start' | 'plan' | 'write' | 'publish' | 'grow';
+
+/** One input the studio asks for before a tool can run. */
+export type ToolFieldKey =
+  | 'prompt'
+  | 'audience'
+  | 'market'
+  | 'tone'
+  | 'length'
+  | 'keywords'
+  | 'channelName'
+  | 'script'
+  | 'niche'
+  | 'notes';
+
+export interface ToolField {
+  key: ToolFieldKey;
+  label: string;
+  placeholder?: string;
+  type?: 'text' | 'textarea' | 'select' | 'number';
+  options?: string[];
+  hint?: string;
+  required?: boolean;
+  defaultValue?: string;
+}
 
 export interface ToolDefinition {
   id: string;
@@ -137,12 +142,13 @@ export interface ToolDefinition {
   summary: string;
   icon: ToolIcon;
   accent: string;
-  inputs: string[];
-  outputs: string[];
   pipeline: string[];
-  requires: string[];
-  /** What has to be installed/configured for this tool to produce output. */
-  engine: ToolEngine;
+  /** Where this tool fits in the journey from empty channel to publishing. */
+  stage: ToolStage;
+  /** Inputs the studio renders for this tool. */
+  fields: ToolField[];
+  /** Files this tool writes, shown before the run starts. */
+  deliverables: string[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -155,17 +161,10 @@ export interface LlmSettings {
   model: string;
   /** Model used for fast/cheap operations such as translation. */
   fastModel: string;
-  /** Image model for `/images/generations` (e.g. `gpt-image-1`, `flux-1.1-pro`). */
-  imageModel: string;
 }
 
 export interface AppSettings {
   llm: LlmSettings;
-  /**
-   * Use a keyless public image service when no image model is configured, so a
-   * fresh install still produces real AI art.
-   */
-  keylessImages: boolean;
   /** Where the daemon writes its workspace data. */
   dataDir: string;
   /** Enable the free local model router when reachable. */
