@@ -42,7 +42,6 @@ export function ToolDrawer({
     });
     setStarting(false);
     setTitle('');
-    notify(`${tool.name} started`, 'success');
     onClose();
   };
 

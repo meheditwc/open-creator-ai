@@ -143,7 +143,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   useEffect(() => {
     void refresh();
     void refreshCapabilities();
-    // Idle workspaces poll slowly; while a render is in flight the studio
+    // Idle workspaces poll slowly; while a run is in flight the studio
     // refreshes every second so progress and artifacts appear as they land.
     const interval = window.setInterval(() => void refresh(), hasActiveRun ? 1_200 : 15_000);
     return () => {
@@ -233,9 +233,9 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
             title: input.title ?? input.tool,
             status: 'failed',
             progress: 100,
-            message: 'Rendering needs the local daemon.',
+            message: 'Writing files needs the local daemon.',
             error:
-              'The studio is running without the daemon, so nothing can be rendered. Start it with `npm run dev:daemon` and run this tool again.',
+              'The studio is running without the daemon, so nothing can be written to disk. Start it with `npm run dev:daemon` and run this tool again.',
             artifacts: [],
             notes: [],
             input,
@@ -244,7 +244,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
           };
           setRuns((current) => persistRuns([run, ...current]));
         }
-        notify(`Run queued for ${input.tool}`, 'success');
+        notify(`Generating ${input.tool.replace(/-/g, ' ')}…`, 'success');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'Could not start the run', 'error');
       }
