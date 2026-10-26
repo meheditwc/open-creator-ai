@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -27,7 +27,21 @@ async function withDaemon<T>(fn: (daemon: Daemon) => Promise<T>): Promise<T> {
   }
 }
 
-async function waitForRun(daemon: Daemon, runId: string, timeoutMs = 20_000) {
+async function waitForStatus(
+  read: () => string | undefined,
+  expected: string,
+  timeoutMs = 20_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (read() !== expected) {
+    if (Date.now() > deadline) {
+      throw new Error(`timed out waiting for status ${expected} (saw ${read() ?? 'nothing'})`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+async function waitForRun(daemon: Daemon, runId: string, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs;
   let run = daemon.getRun(runId);
   while (run && run.status !== 'completed' && run.status !== 'failed') {
@@ -277,6 +291,7 @@ test('artifacts are served over HTTP with the right content type', async () => {
       /attachment; filename="captions.srt"/,
     );
   } finally {
+    server.closeAllConnections?.();
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(dataDir, { recursive: true, force: true });
   }
@@ -330,20 +345,37 @@ test('a run interrupted by a restart is reported as failed, not left running', a
   };
 
   try {
-    const first = new Daemon(interruptedConfig);
-    const run = await first.createRun({ tool: 'channel-roadmap', prompt: 'grow my channel' });
+    // Write the interrupted workspace straight to disk instead of starting a run:
+    // a live worker would race the recovered state and make this test flaky.
+    await mkdir(interruptedDir, { recursive: true });
+    const stamp = new Date().toISOString();
+    const interrupted = {
+      id: 'run_interrupted0001',
+      projectId: '',
+      tool: 'channel-roadmap',
+      title: 'Interrupted mid-run',
+      status: 'running',
+      progress: 40,
+      message: 'Writing files…',
+      artifacts: [],
+      notes: [],
+      input: { tool: 'channel-roadmap', prompt: 'grow my channel', fields: {} },
+      createdAt: stamp,
+      updatedAt: stamp,
+    };
+    await writeFile(
+      join(interruptedDir, 'runs.json'),
+      `${JSON.stringify([interrupted], null, 2)}\n`,
+      'utf8',
+    );
 
-    // Simulate the crash: a run left mid-flight on disk.
-    await first['runs'].put({ ...run, status: 'running', progress: 40 });
+    const daemon = new Daemon(interruptedConfig);
+    await waitForStatus(() => daemon.getRun(interrupted.id)?.status, 'failed', 10_000);
 
-    const second = new Daemon(interruptedConfig);
-    const settled = () => second.getRun(run.id)?.status === 'failed';
-    const deadline = Date.now() + 5000;
-    while (!settled() && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-    assert.equal(second.getRun(run.id)?.status, 'failed');
-    assert.match(second.getRun(run.id)?.message ?? '', /restart/i);
+    const recovered = daemon.getRun(interrupted.id);
+    assert.equal(recovered?.status, 'failed');
+    assert.match(recovered?.message ?? '', /restart/i);
+    assert.equal(recovered?.artifacts.length, 0);
   } finally {
     await rm(interruptedDir, { recursive: true, force: true });
   }

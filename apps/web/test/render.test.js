@@ -77,7 +77,13 @@ test('the real studio entry bundles and renders with one compatible React copy',
 
   try {
     await import(pathToFileURL(path.join(outputDir, 'main.mjs')).href);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // React renders in a microtask/frame; on a cold CI runner 100 ms is not
+    // always enough, so wait for actual markup instead of guessing.
+    const deadline = Date.now() + 5000;
+    while (dom.window.document.querySelector('#root')?.innerHTML.trim().length === 0) {
+      if (Date.now() > deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
   } catch (error) {
     errorMessages.push(error instanceof Error ? error.message : String(error));
   } finally {
