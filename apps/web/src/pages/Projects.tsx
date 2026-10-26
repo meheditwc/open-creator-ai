@@ -29,7 +29,7 @@ export function Projects(): JSX.Element {
       <section className="section">
         <div className="section__head">
           <h2>New project</h2>
-          <p>Group every asset, caption and export of one piece of content.</p>
+          <p>One project per channel — every document that channel produces, in one place.</p>
         </div>
 
         <form className="card" onSubmit={submit}>
@@ -47,7 +47,7 @@ export function Projects(): JSX.Element {
                 id="project-name"
                 className="input"
                 value={name}
-                placeholder="e.g. Launch teaser — October"
+                placeholder="e.g. Cut Faster — phone editing"
                 onChange={(event) => setName(event.target.value)}
               />
             </div>
@@ -57,7 +57,7 @@ export function Projects(): JSX.Element {
                 id="project-description"
                 className="input"
                 value={description}
-                placeholder="What is this project for?"
+                placeholder="e.g. Beginner phone editing for creators in Bangladesh"
                 onChange={(event) => setDescription(event.target.value)}
               />
             </div>
@@ -136,14 +136,14 @@ export function Projects(): JSX.Element {
       <section className="section">
         <div className="section__head">
           <h2>All runs</h2>
-          <p>Every pipeline execution in this workspace.</p>
+          <p>Every run in this workspace — click one to read its files.</p>
         </div>
 
         {runs.length === 0 ? (
           <EmptyState
             icon="bolt"
             title="Nothing has run yet"
-            description="Start a tool from the Creator tools page and the run will show up here."
+            description="Start a tool from the Channel tools page and its files will show up here."
           />
         ) : (
           <div className="card" style={{ padding: '6px 0' }}>
@@ -171,15 +171,6 @@ export function Projects(): JSX.Element {
                         <div className="faint mono" style={{ fontSize: 11 }}>
                           {run.message}
                         </div>
-                        {(run.artifacts?.length ?? 0) > 0 && (
-                          <div className="faint" style={{ fontSize: 11 }}>
-                            {run.artifacts.length} file{run.artifacts.length === 1 ? '' : 's'} ·{' '}
-                            {run.artifacts
-                              .slice(0, 2)
-                              .map((artifact) => artifact.name)
-                              .join(', ')}
-                          </div>
-                        )}
                       </td>
                       <td className="muted">{run.tool}</td>
                       <td className="muted">{project?.name ?? '—'}</td>

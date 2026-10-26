@@ -81,9 +81,9 @@ export function ToolDrawer({
             </span>
           </div>
 
-          <div className="section__head" style={{ marginBottom: 12 }}>
-            <h2 style={{ fontSize: 15 }}>Your answers</h2>
-            <p style={{ fontSize: 12.5 }}>
+          <div className="kv" style={{ marginBottom: 4 }}>
+            <h4>Your answers</h4>
+            <p className="muted" style={{ fontSize: 12.5, margin: '4px 0 0' }}>
               These feed straight into the documents — the more specific, the better.
             </p>
           </div>
@@ -137,10 +137,14 @@ export function ToolDrawer({
           <div className="kv">
             <h4>Pipeline</h4>
             <div className="pipeline">
-              {tool.pipeline.map((step, index) => (
-                <span key={step} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                  {index > 0 && <span className="pipeline__arrow">→</span>}
+              {tool.pipeline.map((step) => (
+                <span key={step} className="pipeline__item">
                   <span className="pipeline__step">{step}</span>
+                  {/* The arrow trails its step so a wrapped line still starts
+                      with a step name rather than a dangling arrow. */}
+                  <span className="pipeline__arrow" aria-hidden="true">
+                    →
+                  </span>
                 </span>
               ))}
             </div>

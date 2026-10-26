@@ -7,7 +7,7 @@ import { useApp } from '../state/AppState.tsx';
 
 const NAV: { route: RouteName; label: string; icon: IconName }[] = [
   { route: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { route: 'tools', label: 'Creator tools', icon: 'tools' },
+  { route: 'tools', label: 'Channel tools', icon: 'tools' },
   { route: 'agent', label: 'Agent', icon: 'agent' },
   { route: 'projects', label: 'Projects', icon: 'projects' },
   { route: 'settings', label: 'Settings', icon: 'settings' },

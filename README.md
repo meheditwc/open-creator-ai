@@ -42,6 +42,38 @@ roadmap.
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="Open Creator AI dashboard: the five-stage channel journey, live run stats and recent runs" width="100%" />
+</p>
+
+| Channel tools                                                                                                     | A finished run                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| ![The Channel tools page: twelve tools grouped by stage, each listing the files it writes](docs/images/tools.png) | ![Run details: script.md, shot-list.csv and captions.srt generated for a Video Script run](docs/images/run-details.png) |
+
+| Filling in a tool                                                                                                              | Projects                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| ![The Video Script drawer: four answers, a five-step pipeline, and the three files it will write](docs/images/tool-drawer.png) | ![Projects: one project per channel, with every run and its files listed underneath](docs/images/projects.png) |
+
+<details>
+<summary><b>More screenshots — agent, settings, light theme, mobile</b></summary>
+
+| Agent                                                                                                    | Settings                                                                                          |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| ![The agent describing which tool fits a request, what it needs, and how it runs](docs/images/agent.png) | ![Settings: the optional model provider, appearance and daemon runtime](docs/images/settings.png) |
+
+| Light theme                                                          | Mobile                                                                            |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| ![The dashboard in the light theme](docs/images/light-dashboard.png) | ![The dashboard on a 430px-wide phone viewport](docs/images/mobile-dashboard.png) |
+
+All screenshots are captured from the running app, with the demo channel and its seven
+completed runs still in the workspace — nothing is mocked up.
+
+</details>
+
+---
+
 ## Quick start
 
 ```bash

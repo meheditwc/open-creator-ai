@@ -37,7 +37,7 @@ you use it safely.
 | **CORS**               | `OPENCREATOR_CORS` defaults to `*` for convenience. Restrict it to your app's origin when the daemon is reachable beyond localhost.                                                               |
 | **API keys**           | Provider keys are stored in `settings.json` inside your data directory, in plain text, and sent only to the provider you configure. They are never bundled into the client or sent anywhere else. |
 | **Local storage**      | The offline fallback keeps projects and settings in browser `localStorage` — readable by any script running on that origin. Do not use it on a shared machine with sensitive content.             |
-| **Command execution**  | The studio never executes shell commands and bundles no binaries. Runs only read your form input and write text, CSV, JSON, SRT and HTML files under the data directory. |
+| **Command execution**  | The studio never executes shell commands and bundles no binaries. Runs only read your form input and write text, CSV, JSON, SRT and HTML files under the data directory.                          |
 | **Markdown rendering** | Agent output is rendered by a custom renderer that never uses `dangerouslySetInnerHTML` — output is safe by construction.                                                                         |
 
 ## Hardening for shared machines

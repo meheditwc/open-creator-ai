@@ -1,4 +1,4 @@
-import { useMemo, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 import { useHashRoute, type RouteName } from './lib/router.ts';
 import { AppProvider, useApp } from './state/AppState.tsx';
 import { Sidebar } from './components/Sidebar.tsx';
@@ -15,11 +15,11 @@ import type { ToolDefinition } from '@open-creator/shared';
 const META: Record<RouteName, { title: string; subtitle: string }> = {
   dashboard: {
     title: 'Dashboard',
-    subtitle: 'Everything you are working on, at a glance.',
+    subtitle: 'Your channel, from the niche you pick to the upload you publish.',
   },
   tools: {
-    title: 'Creator tools',
-    subtitle: 'Reusable pipelines for video, image, audio and text.',
+    title: 'Channel tools',
+    subtitle: 'Twelve tools across five stages — every one writes real files.',
   },
   agent: {
     title: 'Agent',
@@ -27,11 +27,11 @@ const META: Record<RouteName, { title: string; subtitle: string }> = {
   },
   projects: {
     title: 'Projects',
-    subtitle: 'Keep every asset of a piece of content together.',
+    subtitle: 'One project per channel: every document, in one place.',
   },
   settings: {
     title: 'Settings',
-    subtitle: 'Provider, runtime and appearance.',
+    subtitle: 'Optional model provider, runtime and appearance.',
   },
 };
 
@@ -42,6 +42,12 @@ function Studio(): JSX.Element {
   const [selectedTool, setSelectedTool] = useState<ToolDefinition | null>(null);
 
   const meta = META[route];
+
+  // A route change means the person moved on: don't leave the previous tool's
+  // drawer sitting on top of the page they just opened.
+  useEffect(() => {
+    setSelectedTool(null);
+  }, [route]);
 
   const openTool = (toolId: string) => {
     const tool = tools.find((candidate) => candidate.id === toolId);

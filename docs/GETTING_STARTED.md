@@ -1,5 +1,9 @@
 # Getting started
 
+<p align="center">
+  <img src="images/dashboard.png" alt="The studio dashboard: the five-stage channel journey and the runs you have already generated" width="100%" />
+</p>
+
 ## Prerequisites
 
 | Requirement | Version  | Why                                                                |

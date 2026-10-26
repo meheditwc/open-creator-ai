@@ -107,6 +107,49 @@ export function Dashboard({
 
       <section className="section">
         <div className="section__head">
+          <h2>The channel journey</h2>
+          <p>Five stages from zero to publishing. Work left to right, or jump to what you need.</p>
+          <div className="spacer" />
+          <button type="button" className="btn btn--sm" onClick={() => onNavigate('tools')}>
+            All tools
+          </button>
+        </div>
+
+        <div className="journey">
+          {JOURNEY.map((step, index) => (
+            <div key={step.stage} className="journey__step">
+              <div className="journey__index">
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <div className="journey__label">{step.title}</div>
+                <div className="journey__detail">{step.detail}</div>
+              </div>
+              <div className="journey__tools">
+                {tools
+                  .filter((tool) => tool.stage === step.stage)
+                  .map((tool) => (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      className="journey__tool"
+                      onClick={() => onSelectTool(tool.id)}
+                    >
+                      <span className="journey__tool-icon" style={{ color: tool.accent }}>
+                        <Icon name={tool.icon} size={16} />
+                      </span>
+                      <span style={{ minWidth: 0 }}>
+                        <span className="journey__tool-name">{tool.name}</span>
+                        <span className="journey__tool-file">{tool.deliverables.join(' · ')}</span>
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section__head">
           <h2>Recent runs</h2>
           <p>Every document you have generated, in one timeline.</p>
           <div className="spacer" />
@@ -184,49 +227,6 @@ export function Dashboard({
             </table>
           </div>
         )}
-      </section>
-
-      <section className="section">
-        <div className="section__head">
-          <h2>The channel journey</h2>
-          <p>Five stages from zero to publishing. Work left to right, or jump to what you need.</p>
-          <div className="spacer" />
-          <button type="button" className="btn btn--sm" onClick={() => onNavigate('tools')}>
-            All tools
-          </button>
-        </div>
-
-        <div className="journey">
-          {JOURNEY.map((step, index) => (
-            <div key={step.stage} className="journey__step">
-              <div className="journey__index">
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <div className="journey__label">{step.title}</div>
-                <div className="journey__detail">{step.detail}</div>
-              </div>
-              <div className="journey__tools">
-                {tools
-                  .filter((tool) => tool.stage === step.stage)
-                  .map((tool) => (
-                    <button
-                      key={tool.id}
-                      type="button"
-                      className="journey__tool"
-                      onClick={() => onSelectTool(tool.id)}
-                    >
-                      <span className="journey__tool-icon" style={{ color: tool.accent }}>
-                        <Icon name={tool.icon} size={16} />
-                      </span>
-                      <span style={{ minWidth: 0 }}>
-                        <span className="journey__tool-name">{tool.name}</span>
-                        <span className="journey__tool-file">{tool.deliverables.join(' · ')}</span>
-                      </span>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
       </section>
 
       <section className="section">
