@@ -359,6 +359,16 @@ const BARE_VERBS = new Set([
   'gain',
   'read',
   'speak',
+  'batch',
+  'plan',
+  'track',
+  'schedule',
+  'publish',
+  'monetize',
+  'monetise',
+  'negotiate',
+  'outsource',
+  'repurpose',
 ]);
 
 function toGerund(verb: string): string {
@@ -379,25 +389,52 @@ function toGerund(verb: string): string {
  */
 export interface Forms {
   raw: string;
+  /** The topic starts with a verb: "edit a week of content". */
   verb: boolean;
-  /** "editing a week of content" / "phone video editing" — works after "about". */
+  /** The topic is a clause: "how I batch a month of videos", "why my videos got better". */
+  clause: boolean;
+  /** A noun phrase that works after "about" / "for". */
   about: string;
-  /** "how to edit …" / "how phone video editing works". */
+  /** A search-shaped phrase: "how to edit …", "how phone video editing works". */
   howTo: string;
+}
+
+/** Turn a clause like "how I batch a month of videos" into "batching a month of videos". */
+function nounFromClause(raw: string): string | undefined {
+  const stripped = raw
+    .replace(/^(how|why|what|when|where|who|whether)\s+/i, '')
+    .replace(/^(i|you|we|they|he|she|my|your|our|their)\s+/i, '')
+    .trim();
+  const first = stripped.split(/\s+/)[0]?.toLowerCase() ?? '';
+  if (BARE_VERBS.has(first)) return toGerund(first) + stripped.slice(first.length);
+  return undefined;
 }
 
 export function formsOf(topic: string): Forms {
   const raw = topic.trim();
+  // "how I batch a month of videos" is a clause, not a noun phrase. Dropped into
+  // a noun slot it produces "everything about how I batch … is backwards", so we
+  // convert it to a gerund phrase and fall back to a neutral noun when that is
+  // not possible ("why my videos got better …").
+  const clause =
+    /^(how|why|what|when|where|who|whether)\b/i.test(raw) ||
+    /\b(i|you|we|they|he|she|my|your|our|their)\s+[a-z]+(ed|s|t)\b/i.test(raw);
+
   const firstWord = raw.split(/\s+/)[0]?.toLowerCase() ?? '';
-  if (BARE_VERBS.has(firstWord)) {
-    return {
-      raw,
-      verb: true,
-      about: toGerund(firstWord) + raw.slice(firstWord.length),
-      howTo: `how to ${raw}`,
-    };
-  }
-  return { raw, verb: false, about: raw, howTo: `how ${raw} works` };
+  const verb = !clause && BARE_VERBS.has(firstWord);
+  const clauseNoun = clause ? nounFromClause(raw) : undefined;
+
+  return {
+    raw,
+    verb,
+    clause,
+    about: clause
+      ? (clauseNoun ?? 'the process')
+      : verb
+        ? toGerund(firstWord) + raw.slice(firstWord.length)
+        : raw,
+    howTo: clause ? raw : verb ? `how to ${raw}` : `how ${raw} works`,
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -584,7 +621,7 @@ export function buildChannelBlueprint(ctx: Context, nameIdea: string): ChannelBl
     'you do not have to. If you are tired of 20-minute videos that could have been 4, you are in',
     'the right place.',
     '',
-    `New videos every week. Start with the "${core}" playlist.`,
+    `New videos every week. Start with the "${topicForms.about}" playlist.`,
   ].join('\n');
 
   const trailer = [
@@ -597,7 +634,7 @@ export function buildChannelBlueprint(ctx: Context, nameIdea: string): ChannelBl
   ].join('\n');
 
   const playlists = [
-    `Start here — ${core} (3–5 videos, the beginner path)`,
+    `Start here — ${topicForms.about} (3–5 videos, the beginner path)`,
     `Builds — step-by-step projects`,
     `Mistakes & fixes — short diagnostic videos`,
     `Toolbox — gear, apps and templates I actually use`,
@@ -642,7 +679,7 @@ export function buildChannelBlueprint(ctx: Context, nameIdea: string): ChannelBl
     '',
     '**One-liner for collabs:**',
     '',
-    `"${core} explained by someone actually doing it, for ${ctx.audience || 'beginners'}."`,
+    `"${sentenceCase(topicForms.about)} — explained by someone actually doing it, for ${ctx.audience || 'beginners'}."`,
     '',
     '## 3. About section (paste into Studio)',
     '',
@@ -661,7 +698,7 @@ export function buildChannelBlueprint(ctx: Context, nameIdea: string): ChannelBl
     '## 6. Upload defaults',
     '',
     '```text',
-    `Title pattern: ${core} — [specific outcome]`,
+    `Title pattern: ${titleCase(topicForms.about)} — [specific outcome]`,
     '',
     `Description template:`,
     `[One sentence promise.]`,
@@ -676,7 +713,7 @@ export function buildChannelBlueprint(ctx: Context, nameIdea: string): ChannelBl
     '',
     `#hashtag1 #hashtag2`,
     '',
-    `Tags: ${subject(ctx.topic)}, ${subject(ctx.topic)} tips, ${subject(ctx.topic)} for beginners`,
+    `Tags: ${topicForms.about}, ${topicForms.about} tutorial, ${topicForms.about} tips`,
     '```',
     '',
     '## 7. Channel settings checklist',
@@ -877,7 +914,7 @@ export function buildVideoScript(ctx: Context, lengthLabel: string): VideoScript
     `If you have tried ${coreForms.verb ? `to ${core}` : core} and quit, this is the video that fixes it.`,
     `Everything you have been told about ${coreForms.about} is backwards — here is what actually works.`,
     `I spent too long on ${coreForms.about}. This is the short version I wish I had.`,
-    `By the end of this you will have ${coreForms.verb ? `finished ${coreForms.about}` : `what you need for ${core}`}.`,
+    `By the end of this you will have ${coreForms.verb ? `finished ${coreForms.about}` : `what you need for ${coreForms.about}`}.`,
   ];
   const hook = pick(hooks, `${core}|hook`);
 
@@ -896,7 +933,7 @@ export function buildVideoScript(ctx: Context, lengthLabel: string): VideoScript
     },
     {
       label: 'Section 1 — Setup',
-      narration: `Start with the smallest possible version. ${coreForms.verb ? `For ${coreForms.about}` : `For ${core}`}, that means one input and one output — nothing else. Write the promise of the video in one sentence before you touch anything, because everything you add after this either serves that sentence or gets cut.`,
+      narration: `Start with the smallest possible version. For ${coreForms.about}, that means one input and one output — nothing else. Write the promise of the video in one sentence before you touch anything, because everything you add after this either serves that sentence or gets cut.`,
       onScreen: 'One input → one output',
       bRoll: 'Close-up of hands/keystrokes, then the result',
     },
@@ -920,7 +957,9 @@ export function buildVideoScript(ctx: Context, lengthLabel: string): VideoScript
     },
     {
       label: 'Recap',
-      narration: `So: smallest version, second pass, five-second check. That is the whole process — ${coreForms.verb ? coreForms.about : core} does not need more, it needs finishing.`,
+      narration: `So: smallest version, second pass, five-second check. That is the whole thing — ${
+        coreForms.about === 'the process' ? 'it' : coreForms.about
+      } does not need more, it needs finishing.`,
       onScreen: 'Smallest version · Second pass · 5-second check',
       bRoll: 'Recap graphics over b-roll',
     },
@@ -988,7 +1027,7 @@ export function buildVideoScript(ctx: Context, lengthLabel: string): VideoScript
     `${titleCase(core)} — the version that actually finishes.`,
     '',
     'In this video:',
-    `- the smallest setup for ${core}`,
+    `- the smallest setup for ${coreForms.about}`,
     '- the second pass that makes it feel finished',
     '- the 5-second check before you publish',
     '',
@@ -1141,6 +1180,7 @@ export function buildSeoPack(ctx: Context, keywordInput: string): SeoPack {
   const primary = (keywordInput.split(',')[0] || core).trim().toLowerCase();
 
   const seoForms = formsOf(core);
+  const coreForms = seoForms;
   const primaryForms = formsOf(primary);
   const titles = [
     `${titleCase(core)} (the version that works)`,
@@ -1234,7 +1274,7 @@ export function buildSeoPack(ctx: Context, keywordInput: string): SeoPack {
     '',
     '## Pinned comment',
     '',
-    `Which part of ${core} do you get stuck on? Tell me and I will cover it next.`,
+    `Which part of ${coreForms.about} do you get stuck on? Tell me and I will cover it next.`,
     '',
     '## End screen copy',
     '',
@@ -1257,7 +1297,7 @@ export function buildSeoPack(ctx: Context, keywordInput: string): SeoPack {
       tags,
       hashtags,
       chapters: chapters.map(([time, label]) => ({ time, label })),
-      pinnedComment: `Which part of ${core} do you get stuck on? Tell me and I will cover it next.`,
+      pinnedComment: `Which part of ${coreForms.about} do you get stuck on? Tell me and I will cover it next.`,
       recommendedTitle: titles[0].title,
     },
     null,
@@ -1278,7 +1318,8 @@ export interface ThumbnailBrief {
 
 export function buildThumbnailBrief(ctx: Context, mood: string): ThumbnailBrief {
   const core = subject(ctx.topic);
-  const short = core.split(' ').slice(0, 3).join(' ');
+  const coreForms = formsOf(core);
+  const short = coreForms.about.split(' ').slice(0, 3).join(' ');
 
   const concepts = [
     {
@@ -1296,7 +1337,7 @@ export function buildThumbnailBrief(ctx: Context, mood: string): ThumbnailBrief 
     },
     {
       name: 'The mistake',
-      visual: `You pointing at a crossed-out version of the common mistake for ${core}.`,
+      visual: `You pointing at a crossed-out version of the common mistake in ${coreForms.about}.`,
       text: `STOP THIS`,
       why: 'Negative framing earns clicks without lying about the content.',
     },
@@ -1510,64 +1551,64 @@ export function buildCalendar(ctx: Context, perWeekInput: number | string): Cont
   const templates: { pillar: string; keyword: string; title: string }[] = [
     {
       pillar: 'Teach',
-      keyword: `${core} for beginners`,
+      keyword: `${forms.about} for beginners`,
       title: forms.verb ? `How to ${core} — step by step` : `${titleCase(core)} — start to finish`,
     },
     {
       pillar: 'Teach',
-      keyword: `${core} step by step`,
+      keyword: `${forms.about} step by step`,
       title: forms.verb
         ? `The first 10 minutes of ${forms.about}`
         : `Your first 10 minutes of ${core}`,
     },
     {
       pillar: 'Prove',
-      keyword: `${core} results`,
+      keyword: `${forms.about} results`,
       title: `I tried ${forms.verb ? forms.about : core} for 30 days — here is what changed`,
     },
     {
       pillar: 'Prove',
-      keyword: `${core} before after`,
+      keyword: `${forms.about} before after`,
       title: `Before vs after: one month of ${forms.about}`,
     },
     {
       pillar: 'Story',
-      keyword: `${core} journey`,
+      keyword: `${forms.about} journey`,
       title: `Why I almost quit ${forms.about}`,
     },
     {
       pillar: 'Story',
-      keyword: `${core} mistakes I made`,
+      keyword: `${forms.about} mistakes I made`,
       title: `Everything I got wrong about ${forms.about} (so you do not have to)`,
     },
     {
       pillar: 'Compare',
-      keyword: `best ${core} tools`,
+      keyword: `best ${forms.about} tools`,
       title: `Cheap vs expensive: ${forms.verb ? `how I ${core}` : core}`,
     },
     {
       pillar: 'Compare',
-      keyword: `${core} alternatives`,
+      keyword: `${forms.about} alternatives`,
       title: `I tested ${forms.verb ? 'three ways to ' + core : 'three approaches to ' + core}`,
     },
     {
       pillar: 'Mistake',
-      keyword: `${core} mistakes`,
+      keyword: `${forms.about} mistakes`,
       title: `${titleCase(core)}: 3 mistakes that keep you stuck`,
     },
     {
       pillar: 'Mistake',
-      keyword: `${core} problems`,
+      keyword: `${forms.about} problems`,
       title: `The ${forms.verb ? core.split(' ').slice(0, 4).join(' ') : core} mistake everyone makes`,
     },
     {
       pillar: 'Challenge',
-      keyword: `${core} challenge`,
+      keyword: `${forms.about} challenge`,
       title: `${titleCase(core)} in one hour — no shortcuts`,
     },
     {
       pillar: 'Challenge',
-      keyword: `${core} in a week`,
+      keyword: `${forms.about} in a week`,
       title: `I gave myself 7 days to ${forms.verb ? core : `master ${core}`}`,
     },
   ];
