@@ -5,6 +5,50 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **The product is now a YouTube channel workflow, not a media generator.**
+  Image generation, video generation, thumbnails-as-PNG, voiceover, dubbing,
+  video download and subtitle downloads are removed, together with the whole
+  ffmpeg / `yt-dlp` / keyless-image pipeline. Nothing in the studio needs a
+  binary, a model or an API key any more.
+- Twelve tools, ordered by the journey from an empty channel to a publishing
+  habit: **Niche Finder**, **Channel Blueprint** (start) → **Keyword Research**,
+  **Content Calendar** (plan) → **Video Script**, **Shorts Script** (write) →
+  **YouTube SEO**, **Thumbnail Brief**, **Captions**, **Upload Checklist**
+  (publish) → **Channel Roadmap**, **Article Writer** (grow).
+- `apps/daemon/src/youtube.ts` replaces the render pipeline with pure, seeded
+  generators, so the same answers always produce the same documents.
+- Every tool declares the files it writes (`deliverables`) and the fields it
+  needs (`fields`); the studio renders those fields as a form and the tool
+  drawer lists the exact filenames before you start.
+- The dashboard is a five-stage journey with the tools grouped by stage.
+- Run artifacts are `text`, `subtitle`, `data` or `document` — Markdown, SRT,
+  VTT, CSV, JSON and HTML — previewed, copyable and downloadable.
+- `npm run setup:media` is gone; `package.json` and `.env.example` dropped every
+  media-binary and image-model setting. Version bumped to `0.4.0`.
+
+### Fixed
+
+- `?download=1` now sends `content-disposition: attachment`, so the download
+  button actually saves the file instead of opening it.
+- `Content Calendar` read its "uploads per week" answer as a raw number and
+  silently produced a one-row CSV when the field was a string.
+
+### Tests
+
+- The suite now proves the acceptance criterion: **every tool, run for real,
+  writes every file it advertises**, with non-empty content that is not a
+  placeholder, plus determinism, MIME types, download headers, restart recovery
+  and the offline planner.
+
+### Removed
+
+- `apps/daemon/src/imagegen.ts`, `media.ts`, `renderers.ts`, `provider.ts`,
+  `scripts/setup-media.mjs` and the bundled `.bin/ffmpeg`.
+
 ## [0.3.0] — 2026-10-25
 
 ### Changed

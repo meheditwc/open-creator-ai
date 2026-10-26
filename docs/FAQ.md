@@ -10,8 +10,9 @@ locally — one `docker run` and you are done.
 
 ### Do I need an API key to use it?
 
-No. The studio ships with an offline planner that answers with a real pipeline plan.
-A provider key upgrades the answers, it does not unlock the app.
+No. All twelve channel tools are deterministic generators — niche report, scripts, SEO
+pack, captions, calendar, roadmap — and they run with no key, no account and no
+binaries. A provider key only upgrades the **agent chat**; it never unlocks a tool.
 
 ### Which models can I use?
 
@@ -19,13 +20,18 @@ Anything that speaks the OpenAI chat-completions API: FreeLLMAPI, Ollama, LM Stu
 LiteLLM, vLLM, OpenAI, OpenRouter, Groq, Together, or your own gateway. Point the
 **Base URL** at it and enter the key.
 
-### What does the studio actually run?
+### What does the studio actually produce?
 
-The catalogue, the project store and the agent are fully functional. The media
-pipelines (transcode, transcribe, dub, render) are _planned_ by the studio today —
-they are executed by the binaries on your machine through the skills in `skills/`.
-This split is deliberate: the studio never ships or installs binaries, and never
-runs commands behind your back.
+Real files. Every run writes its documents into `.runtime/artifacts/<runId>/` — Markdown,
+CSV, JSON, SRT, VTT and HTML — and the studio serves them back for preview, copy and
+download. There are no simulated runs and no placeholder content; the test suite fails
+if a tool does not write every file it advertises.
+
+### Does it generate images or video?
+
+No, deliberately. The studio covers the part that decides whether a channel works —
+the niche, the words, the packaging and the schedule — and leaves filming and editing to
+you. That is why it needs no `ffmpeg`, no models and no keys.
 
 ### Can I use it without the daemon?
 
@@ -78,8 +84,10 @@ const { items } = await client.listProjects();
 
 ### How do I add a tool?
 
-Add an entry to `TOOLS` in `packages/shared/src/tools.ts`. The UI, the API validation,
-the planner and the docs all follow automatically — see [`docs/TOOLS.md`](TOOLS.md).
+Add an entry to `TOOLS` in `packages/shared/src/tools.ts` (fields + deliverables), add a
+generator to `apps/daemon/src/youtube.ts`, and a case to `GENERATORS` in
+`apps/daemon/src/worker.ts`. The UI, the API validation, the planner and the docs all
+follow automatically — see [`docs/TOOLS.md`](TOOLS.md).
 
 ### How do I write a skill?
 

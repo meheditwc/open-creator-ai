@@ -2,10 +2,13 @@ import { useState, type JSX } from 'react';
 import { useApp } from '../state/AppState.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
+import { RunDetails } from '../components/RunDetails.tsx';
 import { pluralize, relativeTime } from '../lib/format.ts';
 
 export function Projects(): JSX.Element {
   const { projects, runs, createProject, deleteProject, updateProject } = useApp();
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const openRun = runs.find((run) => run.id === openRunId) ?? null;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
@@ -26,7 +29,7 @@ export function Projects(): JSX.Element {
       <section className="section">
         <div className="section__head">
           <h2>New project</h2>
-          <p>Group every asset, caption and export of one piece of content.</p>
+          <p>One project per channel — every document that channel produces, in one place.</p>
         </div>
 
         <form className="card" onSubmit={submit}>
@@ -44,7 +47,7 @@ export function Projects(): JSX.Element {
                 id="project-name"
                 className="input"
                 value={name}
-                placeholder="e.g. Launch teaser — October"
+                placeholder="e.g. Cut Faster — phone editing"
                 onChange={(event) => setName(event.target.value)}
               />
             </div>
@@ -54,7 +57,7 @@ export function Projects(): JSX.Element {
                 id="project-description"
                 className="input"
                 value={description}
-                placeholder="What is this project for?"
+                placeholder="e.g. Beginner phone editing for creators in Bangladesh"
                 onChange={(event) => setDescription(event.target.value)}
               />
             </div>
@@ -133,14 +136,14 @@ export function Projects(): JSX.Element {
       <section className="section">
         <div className="section__head">
           <h2>All runs</h2>
-          <p>Every pipeline execution in this workspace.</p>
+          <p>Every run in this workspace — click one to read its files.</p>
         </div>
 
         {runs.length === 0 ? (
           <EmptyState
             icon="bolt"
             title="Nothing has run yet"
-            description="Start a tool from the Creator tools page and the run will show up here."
+            description="Start a tool from the Channel tools page and its files will show up here."
           />
         ) : (
           <div className="card" style={{ padding: '6px 0' }}>
@@ -158,7 +161,11 @@ export function Projects(): JSX.Element {
                 {runs.map((run) => {
                   const project = projects.find((candidate) => candidate.id === run.projectId);
                   return (
-                    <tr key={run.id}>
+                    <tr
+                      key={run.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setOpenRunId(run.id)}
+                    >
                       <td>
                         <div style={{ fontWeight: 550 }}>{run.title}</div>
                         <div className="faint mono" style={{ fontSize: 11 }}>
@@ -191,6 +198,8 @@ export function Projects(): JSX.Element {
           </div>
         )}
       </section>
+
+      {openRun && <RunDetails run={openRun} onClose={() => setOpenRunId(null)} />}
     </>
   );
 }

@@ -1,5 +1,9 @@
 # Getting started
 
+<p align="center">
+  <img src="images/dashboard.png" alt="The studio dashboard: the five-stage channel journey and the runs you have already generated" width="100%" />
+</p>
+
 ## Prerequisites
 
 | Requirement | Version  | Why                                                                |
@@ -7,8 +11,7 @@
 | Node.js     | ≥ 22.18  | Native TypeScript execution — the daemon runs `.ts` files directly |
 | npm         | ≥ 10     | Workspaces (pnpm works too — see below)                            |
 | Docker      | optional | Only if you want a free local LLM router (FreeLLMAPI)              |
-| ffmpeg      | optional | Needed by the real media pipelines                                 |
-| yt-dlp      | optional | Needed by the downloader and subtitle skills                       |
+| ffmpeg      | no       | Not needed — the studio generates documents, not media             |
 
 Check your Node version:
 
@@ -114,14 +117,14 @@ Change it with `OPENCREATOR_DATA_DIR=/somewhere/else`.
 
 ## Troubleshooting
 
-| Symptom                      | Fix                                                               |
-| ---------------------------- | ----------------------------------------------------------------- |
-| _Daemon offline_ banner      | Start the runtime: `npm run dev:daemon`                           |
-| Agent says _offline planner_ | No provider configured — set one in Settings                      |
-| Port 19861 already in use    | `PORT=3000 npm run dev:web` (the daemon proxy target stays 9861)  |
-| Port 9861 already in use     | `PORT=9862 npm run dev:daemon` and set `OPENCREATOR_DAEMON_URL`   |
-| Media tools do nothing       | Install `ffmpeg` and `yt-dlp`; the studio detects what is missing |
-| Stale data after a crash     | Delete `.runtime/*.json` — the daemon recreates them on boot      |
+| Symptom                      | Fix                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| _Daemon offline_ banner      | Start the runtime: `npm run dev:daemon`                                            |
+| Agent says _offline planner_ | No provider configured — set one in Settings                                       |
+| Port 19861 already in use    | `PORT=3000 npm run dev:web` (the daemon proxy target stays 9861)                   |
+| Port 9861 already in use     | `PORT=9862 npm run dev:daemon` and set `OPENCREATOR_DAEMON_URL`                    |
+| A run produced no files      | Check the run's error banner; every tool writes into `.runtime/artifacts/<runId>/` |
+| Stale data after a crash     | Delete `.runtime/*.json` — the daemon recreates them on boot                       |
 
 Still stuck? Open an issue — include the output of `npm run dev:daemon` and your
 Node version.

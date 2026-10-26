@@ -1,10 +1,11 @@
-import { useMemo, type JSX } from 'react';
+import { useMemo, useState, type JSX } from 'react';
+import { JOURNEY } from '@open-creator/shared';
 import type { RouteName } from '../lib/router.ts';
 import { useApp } from '../state/AppState.tsx';
 import { StatCard } from '../components/StatCard.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
-import { ToolCard } from '../components/ToolCard.tsx';
+import { RunDetails } from '../components/RunDetails.tsx';
 import { greeting, pluralize, relativeTime } from '../lib/format.ts';
 
 export function Dashboard({
@@ -15,6 +16,8 @@ export function Dashboard({
   onSelectTool: (toolId: string) => void;
 }): JSX.Element {
   const { projects, runs, tools, health, daemonOnline } = useApp();
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const openRun = runs.find((run) => run.id === openRunId) ?? null;
 
   const stats = useMemo(() => {
     const completed = runs.filter((run) => run.status === 'completed').length;
@@ -22,32 +25,35 @@ export function Dashboard({
     return { completed, active };
   }, [runs]);
 
-  const featured = tools.filter((tool) => tool.status === 'stable').slice(0, 6);
-
   return (
     <>
       <section className="hero">
         <span className="hero__eyebrow">
           <Icon name="spark" size={13} />
-          Open-source creator workspace
+          Open-source YouTube studio
         </span>
         <h2>
-          {greeting()}, creator. Turn one idea into a
+          {greeting()}, creator. Channel banano theke
           <br />
-          finished video, image or voice track.
+          upload deyar porjonto — ek jaygay.
         </h2>
         <p>
-          Open Creator AI keeps your projects, pipelines and agent in one place — video translation,
-          thumbnails, scripts, voiceovers and subtitles, wired to the models you already run.
+          Choose a niche, set the channel up, research keywords, write scripts, publish with SEO and
+          grow. Every tool writes real Markdown, CSV, SRT and JSON files you can open, edit and
+          upload — no API key, no model, no binaries required.
         </p>
         <div className="hero__actions">
-          <button type="button" className="btn btn--primary" onClick={() => onNavigate('agent')}>
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => onSelectTool('niche-finder')}
+          >
+            <Icon name="target" size={15} />
+            Start with a niche
+          </button>
+          <button type="button" className="btn" onClick={() => onNavigate('agent')}>
             <Icon name="spark" size={15} />
             Ask the agent
-          </button>
-          <button type="button" className="btn" onClick={() => onNavigate('projects')}>
-            <Icon name="plus" size={15} />
-            New project
           </button>
           <button type="button" className="btn btn--ghost" onClick={() => onNavigate('tools')}>
             Browse tools
@@ -83,8 +89,8 @@ export function Dashboard({
           <StatCard
             icon="tools"
             value={tools.length}
-            label="Creator tools"
-            trend={`${tools.filter((tool) => tool.status === 'stable').length} stable`}
+            label="Channel tools"
+            trend={`${tools.filter((tool) => tool.status === 'stable').length} ready to run`}
           />
           <StatCard
             icon="agent"
@@ -101,8 +107,51 @@ export function Dashboard({
 
       <section className="section">
         <div className="section__head">
+          <h2>The channel journey</h2>
+          <p>Five stages from zero to publishing. Work left to right, or jump to what you need.</p>
+          <div className="spacer" />
+          <button type="button" className="btn btn--sm" onClick={() => onNavigate('tools')}>
+            All tools
+          </button>
+        </div>
+
+        <div className="journey">
+          {JOURNEY.map((step, index) => (
+            <div key={step.stage} className="journey__step">
+              <div className="journey__index">
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <div className="journey__label">{step.title}</div>
+                <div className="journey__detail">{step.detail}</div>
+              </div>
+              <div className="journey__tools">
+                {tools
+                  .filter((tool) => tool.stage === step.stage)
+                  .map((tool) => (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      className="journey__tool"
+                      onClick={() => onSelectTool(tool.id)}
+                    >
+                      <span className="journey__tool-icon" style={{ color: tool.accent }}>
+                        <Icon name={tool.icon} size={16} />
+                      </span>
+                      <span style={{ minWidth: 0 }}>
+                        <span className="journey__tool-name">{tool.name}</span>
+                        <span className="journey__tool-file">{tool.deliverables.join(' · ')}</span>
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section__head">
           <h2>Recent runs</h2>
-          <p>Everything you have queued, in one timeline.</p>
+          <p>Every document you have generated, in one timeline.</p>
           <div className="spacer" />
           <button type="button" className="btn btn--sm" onClick={() => onNavigate('projects')}>
             View all
@@ -111,17 +160,17 @@ export function Dashboard({
 
         {runs.length === 0 ? (
           <EmptyState
-            icon="film"
+            icon="clapper"
             title="No runs yet"
-            description="Pick a tool below and start your first pipeline — the studio tracks every stage for you."
+            description="Pick a stage above and generate your first documents — the studio tracks every file for you."
             action={
               <button
                 type="button"
                 className="btn btn--primary"
-                onClick={() => onNavigate('tools')}
+                onClick={() => onSelectTool('niche-finder')}
               >
                 <Icon name="play" size={15} />
-                Browse creator tools
+                Start with a niche
               </button>
             }
           />
@@ -139,7 +188,11 @@ export function Dashboard({
               </thead>
               <tbody>
                 {runs.slice(0, 7).map((run) => (
-                  <tr key={run.id}>
+                  <tr
+                    key={run.id}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setOpenRunId(run.id)}
+                  >
                     <td>
                       <div style={{ fontWeight: 550 }}>{run.title}</div>
                       <div className="faint mono" style={{ fontSize: 11 }}>
@@ -174,23 +227,6 @@ export function Dashboard({
             </table>
           </div>
         )}
-      </section>
-
-      <section className="section">
-        <div className="section__head">
-          <h2>Quick start</h2>
-          <p>The pipelines creators reach for most.</p>
-          <div className="spacer" />
-          <button type="button" className="btn btn--sm" onClick={() => onNavigate('tools')}>
-            All tools
-          </button>
-        </div>
-
-        <div className="tool-grid">
-          {featured.map((tool) => (
-            <ToolCard key={tool.id} tool={tool} onSelect={() => onSelectTool(tool.id)} />
-          ))}
-        </div>
       </section>
 
       <section className="section">
@@ -238,6 +274,8 @@ export function Dashboard({
           </div>
         )}
       </section>
+
+      {openRun && <RunDetails run={openRun} onClose={() => setOpenRunId(null)} />}
     </>
   );
 }

@@ -22,7 +22,7 @@ RUN npm run build
 
 FROM node:22-alpine AS runtime
 
-RUN apk add --no-cache ffmpeg yt-dlp
+RUN apk add --no-cache ffmpeg yt-dlp ttf-dejavu fontconfig
 
 WORKDIR /app
 ENV NODE_ENV=production

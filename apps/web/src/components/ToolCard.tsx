@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
 
 import type { ToolDefinition } from '@open-creator/shared';
-import { CATEGORY_LABELS } from '@open-creator/shared';
+import { CATEGORY_LABELS, STAGE_LABELS } from '@open-creator/shared';
 import { Icon } from './Icon.tsx';
 
 export function ToolCard({
@@ -33,7 +33,9 @@ export function ToolCard({
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="tool-card__name">{tool.name}</div>
-          <div className="tool-card__cat">{CATEGORY_LABELS[tool.category]}</div>
+          <div className="tool-card__cat">
+            {STAGE_LABELS[tool.stage]} · {CATEGORY_LABELS[tool.category]}
+          </div>
         </div>
         <span className={`badge badge--${tool.status}`}>{tool.status}</span>
       </div>
@@ -41,15 +43,11 @@ export function ToolCard({
       <p className="tool-card__summary">{tool.summary}</p>
 
       <div className="tool-card__foot">
-        <span>{tool.outputs.length} outputs</span>
+        <span>{tool.deliverables.length} files</span>
         <span>·</span>
         <span>{tool.pipeline.length} steps</span>
-        {tool.requires.length > 0 && (
-          <>
-            <span>·</span>
-            <span className="mono">{tool.requires.join(', ')}</span>
-          </>
-        )}
+        <span>·</span>
+        <span className="mono">{tool.deliverables.join(', ')}</span>
       </div>
     </article>
   );

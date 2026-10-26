@@ -1,5 +1,6 @@
 import type {
   AppSettings,
+  Capabilities,
   ChatResponse,
   DaemonHealth,
   ListResponse,
@@ -61,6 +62,9 @@ export const api = {
     ),
   createRun: (input: RunInput) =>
     request<Run>('/runs', { method: 'POST', body: JSON.stringify(input) }),
+  getRun: (id: string) => request<Run>(`/runs/${id}`),
+  deleteRun: (id: string) => request<{ deleted: boolean }>(`/runs/${id}`, { method: 'DELETE' }),
+  capabilities: () => request<Capabilities>('/capabilities'),
   getSettings: () => request<AppSettings>('/settings'),
   updateSettings: (settings: Partial<AppSettings>) =>
     request<AppSettings>('/settings', { method: 'PUT', body: JSON.stringify(settings) }),

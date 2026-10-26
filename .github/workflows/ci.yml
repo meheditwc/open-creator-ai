@@ -32,14 +32,26 @@ jobs:
         run: npm run lint
 
       - name: Test (daemon + browser runtime)
-        run: npm test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/test.log
+
+      - name: Summarise test failures
+        if: failure()
+        run: |
+          # Annotations are readable from the API even when the raw job log is
+          # not, so surface the useful lines here.
+          grep -nE '^(not ok|# fail|# pass)|AssertionError|actual:|expected:|Error:' /tmp/test.log \
+            | head -n 25 \
+            | while IFS= read -r line; do echo "::error title=test failure::${line}"; done
+          exit 1
 
       - name: Build
         run: npm run build
 
       - name: Verify the daemon boots
         run: |
-          node apps/daemon/src/index.ts &
+          OPENCREATOR_DATA_DIR=/tmp/ci-runtime node apps/daemon/src/index.ts &
           DAEMON_PID=$!
           for i in $(seq 1 20); do
             if curl -sf http://127.0.0.1:9861/api/health > /tmp/health.json; then

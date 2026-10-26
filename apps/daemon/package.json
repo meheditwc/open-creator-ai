@@ -1,9 +1,9 @@
 {
   "name": "@open-creator/daemon",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "Local runtime for Open Creator AI — projects, runs, settings and the agent endpoint.",
+  "description": "Local runtime for Open Creator AI \u2014 projects, runs, settings and the agent endpoint.",
   "scripts": {
     "dev": "node --watch src/index.ts",
     "start": "node src/index.ts"

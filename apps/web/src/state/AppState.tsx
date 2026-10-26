@@ -12,6 +12,7 @@ import {
 import { TOOLS, localAgentReply } from '@open-creator/shared';
 import type {
   AppSettings,
+  Capabilities,
   ChatResponse,
   DaemonHealth,
   Project,
@@ -37,12 +38,15 @@ interface AppContextValue {
   runs: Run[];
   tools: ToolDefinition[];
   settings: AppSettings | null;
+  capabilities: Capabilities | null;
   toasts: Toast[];
   refresh: () => Promise<void>;
   createProject: (input: ProjectInput) => Promise<void>;
   updateProject: (id: string, patch: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   createRun: (input: RunInput) => Promise<void>;
+  deleteRun: (id: string) => Promise<void>;
+  refreshCapabilities: () => Promise<void>;
   saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
   chat: (message: string, projectId?: string) => Promise<ChatResponse>;
   notify: (message: string, tone?: Toast['tone']) => void;
@@ -63,6 +67,17 @@ const DEFAULT_SETTINGS: AppSettings = {
   autosave: true,
 };
 
+/** Keep the offline cache in step with every mutation, not just creation. */
+function persistProjects(projects: Project[]): Project[] {
+  localStore.saveProjects(projects);
+  return projects;
+}
+
+function persistRuns(runs: Run[]): Run[] {
+  localStore.saveRuns(runs);
+  return runs;
+}
+
 export function AppProvider({ children }: { children: ReactNode }): JSX.Element {
   const [ready, setReady] = useState(false);
   const [daemonOnline, setDaemonOnline] = useState(false);
@@ -70,6 +85,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [projects, setProjects] = useState<Project[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastTimers = useRef<number[]>([]);
 
@@ -84,6 +100,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const refreshCapabilities = useCallback(async () => {
+    try {
+      setCapabilities(await api.capabilities());
+    } catch {
+      setCapabilities(null);
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -114,22 +138,26 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     }
   }, []);
 
+  const hasActiveRun = runs.some((run) => run.status === 'queued' || run.status === 'running');
+
   useEffect(() => {
     void refresh();
-    const interval = window.setInterval(() => void refresh(), 15_000);
+    void refreshCapabilities();
+    // Idle workspaces poll slowly; while a run is in flight the studio
+    // refreshes every second so progress and artifacts appear as they land.
+    const interval = window.setInterval(() => void refresh(), hasActiveRun ? 1_200 : 15_000);
     return () => {
       window.clearInterval(interval);
       toastTimers.current.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [refresh]);
+  }, [refresh, hasActiveRun]);
 
   const createProject = useCallback(
     async (input: ProjectInput) => {
       try {
         if (daemonOnline) {
           const project = await api.createProject(input);
-          setProjects((current) => [project, ...current]);
-          localStore.saveProjects([project, ...projects]);
+          setProjects((current) => persistProjects([project, ...current]));
         } else {
           const now = new Date().toISOString();
           const project: Project = {
@@ -140,16 +168,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
             createdAt: now,
             updatedAt: now,
           };
-          const next = [project, ...projects];
-          setProjects(next);
-          localStore.saveProjects(next);
+          setProjects((current) => persistProjects([project, ...current]));
         }
         notify(`Project “${input.name}” created`, 'success');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'Could not create project', 'error');
       }
     },
-    [daemonOnline, notify, projects],
+    [daemonOnline, notify],
   );
 
   const updateProject = useCallback(
@@ -158,14 +184,16 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
         if (daemonOnline) {
           const updated = await api.updateProject(id, patch);
           setProjects((current) =>
-            current.map((project) => (project.id === id ? updated : project)),
+            persistProjects(current.map((project) => (project.id === id ? updated : project))),
           );
         } else {
           setProjects((current) =>
-            current.map((project) =>
-              project.id === id
-                ? { ...project, ...patch, updatedAt: new Date().toISOString() }
-                : project,
+            persistProjects(
+              current.map((project) =>
+                project.id === id
+                  ? { ...project, ...patch, updatedAt: new Date().toISOString() }
+                  : project,
+              ),
             ),
           );
         }
@@ -180,8 +208,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     async (id: string) => {
       try {
         if (daemonOnline) await api.deleteProject(id);
-        setProjects((current) => current.filter((project) => project.id !== id));
-        setRuns((current) => current.filter((run) => run.projectId !== id));
+        setProjects((current) => persistProjects(current.filter((project) => project.id !== id)));
+        setRuns((current) => persistRuns(current.filter((run) => run.projectId !== id)));
         notify('Project deleted', 'success');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'Could not delete project', 'error');
@@ -195,7 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       try {
         if (daemonOnline) {
           const run = await api.createRun(input);
-          setRuns((current) => [run, ...current]);
+          setRuns((current) => persistRuns([run, ...current]));
         } else {
           const now = new Date().toISOString();
           const run: Run = {
@@ -203,17 +231,35 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
             projectId: input.projectId ?? '',
             tool: input.tool,
             title: input.title ?? input.tool,
-            status: 'running',
-            progress: 40,
-            message: 'Running locally — start the daemon for full pipeline output.',
+            status: 'failed',
+            progress: 100,
+            message: 'Writing files needs the local daemon.',
+            error:
+              'The studio is running without the daemon, so nothing can be written to disk. Start it with `npm run dev:daemon` and run this tool again.',
+            artifacts: [],
+            notes: [],
+            input,
             createdAt: now,
             updatedAt: now,
           };
-          setRuns((current) => [run, ...current]);
+          setRuns((current) => persistRuns([run, ...current]));
         }
-        notify(`Run queued for ${input.tool}`, 'success');
+        notify(`Generating ${input.tool.replace(/-/g, ' ')}…`, 'success');
       } catch (error) {
         notify(error instanceof Error ? error.message : 'Could not start the run', 'error');
+      }
+    },
+    [daemonOnline, notify],
+  );
+
+  const deleteRun = useCallback(
+    async (id: string) => {
+      try {
+        if (daemonOnline) await api.deleteRun(id);
+        setRuns((current) => persistRuns(current.filter((run) => run.id !== id)));
+        notify('Run deleted', 'success');
+      } catch (error) {
+        notify(error instanceof Error ? error.message : 'Could not delete the run', 'error');
       }
     },
     [daemonOnline, notify],
@@ -259,12 +305,15 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       runs,
       tools: TOOLS,
       settings,
+      capabilities,
       toasts,
       refresh,
       createProject,
       updateProject,
       deleteProject,
       createRun,
+      deleteRun,
+      refreshCapabilities,
       saveSettings,
       chat,
       notify,
@@ -277,12 +326,15 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       projects,
       runs,
       settings,
+      capabilities,
       toasts,
       refresh,
       createProject,
       updateProject,
       deleteProject,
       createRun,
+      deleteRun,
+      refreshCapabilities,
       saveSettings,
       chat,
       notify,

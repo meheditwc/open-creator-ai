@@ -77,7 +77,13 @@ test('the real studio entry bundles and renders with one compatible React copy',
 
   try {
     await import(pathToFileURL(path.join(outputDir, 'main.mjs')).href);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // React renders in a microtask/frame; on a cold CI runner 100 ms is not
+    // always enough, so wait for actual markup instead of guessing.
+    const deadline = Date.now() + 5000;
+    while (dom.window.document.querySelector('#root')?.innerHTML.trim().length === 0) {
+      if (Date.now() > deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
   } catch (error) {
     errorMessages.push(error instanceof Error ? error.message : String(error));
   } finally {
@@ -87,6 +93,22 @@ test('the real studio entry bundles and renders with one compatible React copy',
     delete globalThis.document;
     delete globalThis.localStorage;
     delete globalThis.IS_REACT_ACT_ENVIRONMENT;
+  }
+
+  const markup = dom.window.document.querySelector('#root').innerHTML;
+
+  // The dashboard is the channel journey now, not a media gallery.
+  for (const expected of [
+    'Channel banano theke',
+    'channel journey',
+    'Niche Finder',
+    'Video Script',
+    'niche-report.md',
+  ]) {
+    assert.ok(markup.includes(expected), `the dashboard renders "${expected}"`);
+  }
+  for (const gone of ['Thumbnail Generator', 'Image Generation', 'Video Downloader']) {
+    assert.ok(!markup.includes(gone), `the dashboard no longer advertises "${gone}"`);
   }
 
   assert.doesNotMatch(

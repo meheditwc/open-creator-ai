@@ -159,8 +159,11 @@ export function Agent(): JSX.Element {
               {daemonOnline ? 'Daemon connected' : 'Daemon offline'}
             </div>
             <div className="status-pill" style={{ padding: '8px 11px' }}>
+              {/* The offline planner is a working mode, not a failure — show it
+                  in the accent colour rather than the offline red. */}
               <span
-                className={`status-dot ${health?.llm.reachable ? 'status-dot--online' : 'status-dot--offline'}`}
+                className="status-dot"
+                style={{ background: health?.llm.reachable ? 'var(--success)' : 'var(--accent-1)' }}
               />
               {health?.llm.reachable
                 ? `${health.llm.models.length} models available`

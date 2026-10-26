@@ -1,9 +1,9 @@
 {
   "name": "@open-creator/web",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
-  "description": "The Open Creator AI studio — a web workspace for creators.",
+  "description": "The Open Creator AI studio \u2014 a web workspace for creators.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

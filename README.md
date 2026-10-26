@@ -4,21 +4,15 @@
 
 # Open Creator AI
 
-**An open-source AI workspace for creators — plan, generate and ship video, image and audio content from one agent-native studio.**
+**An open-source studio that runs a YouTube channel end to end — niche selection, branding, keywords, scripts, SEO, uploads and growth — and writes every deliverable as a real file.**
 
 [![CI](https://github.com/meheditwc/open-creator-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/meheditwc/open-creator-ai/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.18-5FA04E?logo=node)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](packages/shared)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](apps/web)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](apps/web)
 [![Zero native deps](https://img.shields.io/badge/native%20deps-0-22c55e)](apps/daemon)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
-
-</div>
-
-<div align="center">
-
-![Open Creator AI dashboard](docs/images/dashboard.png)
 
 </div>
 
@@ -26,15 +20,57 @@
 
 ## Why Open Creator AI?
 
-Most AI media tools are a chat box that throws a file at you. Open Creator AI is a **workspace**: projects on the left, a real pipeline catalogue in the middle, and an agent that knows how your tools chain together.
+Most "creator AI" tools stop at a chat box that spits out one paragraph. Starting a
+channel is not one task — it is a chain: pick something you can sustain, set the channel
+up, find what people actually search for, write videos that hold attention, publish them
+properly, then keep going for months.
 
-| Principle                    | What it means                                                                                                        |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Bring your own model**     | Any OpenAI-compatible endpoint — a free local router, Ollama, LM Studio, LiteLLM, vLLM or a hosted API.              |
-| **Bring your own tools**     | `ffmpeg`, `yt-dlp`, `whisper`, a TTS engine — the studio detects what you have and adapts the plan.                  |
-| **Everything is yours**      | Apache-2.0 licensed, self-hosted, no telemetry, no account, no cloud lock-in.                                        |
-| **Works without a model**    | A built-in offline planner answers with a real pipeline plan, so the studio is useful before you configure anything. |
-| **Zero native dependencies** | `npm install` never compiles anything. The daemon is plain Node.js — it starts in milliseconds.                      |
+Open Creator AI turns that chain into twelve tools and gives you the documents at every
+step: a niche report, a channel blueprint, a keyword plan, a timed script, an SEO pack, a
+thumbnail brief, SRT/VTT captions, an upload checklist, a 30-day calendar and a growth
+roadmap.
+
+| Principle                    | What it means                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Real files, not chat**     | Every run writes Markdown, CSV, JSON, SRT or HTML into `.runtime/artifacts/<runId>/` — open, edit, upload. |
+| **No model required**        | All twelve tools are deterministic generators. No API key, no account, no per-token bill.                  |
+| **Zero native dependencies** | No `ffmpeg`, no `yt-dlp`, no `whisper`. `npm install` never compiles anything.                             |
+| **Editable, not locked**     | Everything is plain text or plain data. Your voice, your edits, your files.                                |
+| **Honest output**            | Content is generated from your answers — never a placeholder that would embarrass you in front of viewers. |
+| **Everything is yours**      | Apache-2.0, self-hosted, no telemetry, no cloud lock-in.                                                   |
+| **Bring your own model**     | The optional agent chat speaks any OpenAI-compatible endpoint; the tools never depend on it.               |
+
+---
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/dashboard.png" alt="Open Creator AI dashboard: the five-stage channel journey, live run stats and recent runs" width="100%" />
+</p>
+
+| Channel tools                                                                                                     | A finished run                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| ![The Channel tools page: twelve tools grouped by stage, each listing the files it writes](docs/images/tools.png) | ![Run details: script.md, shot-list.csv and captions.srt generated for a Video Script run](docs/images/run-details.png) |
+
+| Filling in a tool                                                                                                              | Projects                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| ![The Video Script drawer: four answers, a five-step pipeline, and the three files it will write](docs/images/tool-drawer.png) | ![Projects: one project per channel, with every run and its files listed underneath](docs/images/projects.png) |
+
+<details>
+<summary><b>More screenshots — agent, settings, light theme, mobile</b></summary>
+
+| Agent                                                                                                    | Settings                                                                                          |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| ![The agent describing which tool fits a request, what it needs, and how it runs](docs/images/agent.png) | ![Settings: the optional model provider, appearance and daemon runtime](docs/images/settings.png) |
+
+| Light theme                                                          | Mobile                                                                            |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| ![The dashboard in the light theme](docs/images/light-dashboard.png) | ![The dashboard on a 430px-wide phone viewport](docs/images/mobile-dashboard.png) |
+
+All screenshots are captured from the running app, with the demo channel and its seven
+completed runs still in the workspace — nothing is mocked up.
+
+</details>
 
 ---
 
@@ -54,121 +90,78 @@ That starts two processes:
 | **Studio** | http://localhost:19861 | The web workspace (React + Vite)                            |
 | **Daemon** | http://127.0.0.1:9861  | Local runtime: projects, runs, settings, the agent endpoint |
 
-Open <http://localhost:19861> and you are in. No account, no key, no setup wizard.
+Open <http://localhost:19861>, pick a stage on the journey, fill in the form and press
+**Generate files**. A second later the run lists its documents — preview them in the drawer,
+copy them, or download them. No account, no key, no setup wizard.
 
 <details>
 <summary><b>Connect a model provider (optional)</b></summary>
 
-The studio works offline out of the box. To unlock the full agent, point it at any
+The tools never need a model. The **agent chat** is better with one: point it at any
 OpenAI-compatible endpoint — for example a self-hosted [FreeLLMAPI](https://github.com/tashfeenahmed/freellmapi):
 
 ```bash
 docker run -d -p 3001:3001 ghcr.io/tashfeenahmed/freellmapi:latest
 ```
 
-Then in **Settings → Model provider**:
-
-- **Base URL** — `http://localhost:3001/v1`
-- **API key** — the unified key from `http://localhost:3001`
-- **Model** — e.g. `gpt-4o-mini`
+Then in **Settings → Model provider**: Base URL `http://localhost:3001/v1`, the unified
+API key, and a model such as `gpt-4o-mini`. Without it the agent answers with the same
+built-in planner the studio ships.
 
 </details>
 
 ---
 
-## What's inside
+## The channel journey
 
-```
-open-creator-ai/
-├── apps/
-│   ├── web/          # React 19 + Vite + TypeScript studio
-│   └── daemon/       # Node.js runtime — HTTP API, JSON store, agent endpoint
-├── packages/
-│   └── shared/       # Types, tool catalogue, offline planner, API client
-├── skills/           # Codex-style skills for agent workflows
-├── docs/             # Architecture, guides, tool reference
-└── .github/          # CI, issue forms, PR template
-```
+Twelve tools, in the order a channel actually happens.
 
-| Package           | Stack                                          | Responsibility                                                               |
-| ----------------- | ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| `apps/web`        | React 19, Vite 8, TypeScript, hand-written CSS | The studio UI — dashboard, tool catalogue, agent, projects, settings         |
-| `apps/daemon`     | Node.js 22 (`node:http`, `node:fs`)            | Projects, runs, settings, agent endpoint, static hosting of the built studio |
-| `packages/shared` | TypeScript                                     | Domain types, tool catalogue, offline planner, reusable API client           |
+| Stage       | Tool                  | You get                                                                                                                |
+| ----------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Start**   | **Niche Finder**      | `niche-report.md`, `niches.csv` — scored candidate niches, audience, competition, monetisation paths, first ten videos |
+| **Start**   | **Channel Blueprint** | `channel-blueprint.md`, `channel-copy.json` — names, tagline, About section, banner text, trailer script, playlists    |
+| **Plan**    | **Keyword Research**  | `keywords.csv`, `keyword-plan.md` — clustered keywords with intent, suggested titles and a filming order               |
+| **Plan**    | **Content Calendar**  | `calendar-30-days.csv`, `calendar-plan.md` — four weeks of slots with real working titles                              |
+| **Write**   | **Video Script**      | `script.md`, `shot-list.csv`, `captions.srt` — timed sections, hooks, b-roll notes, spoken word budget                 |
+| **Write**   | **Shorts Script**     | `shorts-script.md`, `captions.srt` — 20–60 second beat sheet with on-screen text                                       |
+| **Publish** | **YouTube SEO**       | `seo-pack.md`, `metadata.json` — title options with character counts, description with chapters, tags, pinned comment  |
+| **Publish** | **Thumbnail Brief**   | `thumbnail-brief.md`, `overlay-text.txt` — concept, composition, overlay words, readability checks                     |
+| **Publish** | **Captions**          | `captions.srt`, `captions.vtt`, `chapters.md` — timed cues from your own script                                        |
+| **Publish** | **Upload Checklist**  | `upload-checklist.md`, `checklist.json` — the pre-flight you run before every publish                                  |
+| **Grow**    | **Channel Roadmap**   | `roadmap.md` — 30/90/180-day milestones, systems, and the income paths at your size                                    |
+| **Grow**    | **Article Writer**    | `article.md`, `article.html` — a blog post that repurposes the video for search                                        |
 
-> **Why no framework?** The studio's CSS is a single hand-rolled design system
-> (`apps/web/src/styles/global.css`) — no Tailwind, no PostCSS, no build-time
-> surprises, and no dead weight in the bundle.
-
----
-
-## Creator tools
-
-Every tool is a documented pipeline with typed inputs, outputs and requirements.
-
-| Tool                       | Category | Status | Pipeline                                         |
-| -------------------------- | -------- | ------ | ------------------------------------------------ |
-| **Video Translation**      | video    | stable | download → transcribe → translate → dub → render |
-| **Video Downloader**       | video    | stable | resolve → download                               |
-| **Thumbnail Generator**    | image    | stable | prompt → generate → rank                         |
-| **Image Generation**       | image    | stable | prompt → generate                                |
-| **Video Generation**       | video    | beta   | prompt → generate → caption                      |
-| **Article Writer**         | text     | stable | research → outline → draft → export              |
-| **Short Video Script**     | text     | stable | angle → segments → polish                        |
-| **Stick Figure Animation** | video    | beta   | script → narration → storyboard → render         |
-| **Voiceover & Dubbing**    | audio    | stable | chunk → synthesize → align                       |
-| **Subtitle Studio**        | utility  | stable | transcribe → translate → style → render          |
-| **Workflow Planner**       | utility  | beta   | decompose → map-tools → schedule                 |
-
-See [`docs/TOOLS.md`](docs/TOOLS.md) for the full reference, and
+**Every one of these runs offline on your machine.** See
+[`docs/TOOLS.md`](docs/TOOLS.md) for the full field-by-field reference, and
 [`packages/shared/src/tools.ts`](packages/shared/src/tools.ts) for the source of truth.
 
 ---
 
-## The studio
+## How a run works
 
-<div align="center">
+```mermaid
+flowchart LR
+  A["Pick a stage<br/>on the dashboard"] --> B["Fill the tool's fields"]
+  B --> C["Generate"]
+  C --> D["Run writes files<br/>artifacts/<runId>/"]
+  D --> E["Preview · copy · download"]
+```
 
-<table>
-<tr>
-<td width="50%"><img src="docs/images/tools.png" alt="Creator tools catalogue" /></td>
-<td width="50%"><img src="docs/images/tool-drawer.png" alt="Tool detail drawer" /></td>
-</tr>
-<tr>
-<td align="center"><b>Tool catalogue</b> — filter by category, search, inspect every pipeline</td>
-<td align="center"><b>Tool detail</b> — inputs, stages, outputs, requirements, one-click run</td>
-</tr>
-<tr>
-<td><img src="docs/images/agent.png" alt="Agent conversation" /></td>
-<td><img src="docs/images/projects.png" alt="Projects and runs" /></td>
-</tr>
-<tr>
-<td align="center"><b>The agent</b> — markdown answers, live suggestions, provider status</td>
-<td align="center"><b>Projects</b> — group runs, archive, and track every execution</td>
-</tr>
-</table>
+The dashboard groups the tools by stage. Open one, answer its fields and press **Generate
+files** — the run walks the tool's pipeline in front of you and lands on a drawer listing
+every document with a preview, a copy button and a download button. Every file is plain
+Markdown, CSV, JSON, SRT, VTT or HTML, so it opens in whatever editor you already use.
 
-</div>
+| Screen        | What it is for                                                          |
+| ------------- | ----------------------------------------------------------------------- |
+| **Dashboard** | The five-stage journey, recent runs and your projects                   |
+| **Tools**     | The full catalogue, filterable by stage and category, searchable        |
+| **Agent**     | Chat that maps a goal to the right tool — works offline via the planner |
+| **Projects**  | One project per channel, grouping every run and file                    |
+| **Settings**  | Optional model provider for the agent chat                              |
 
-<details>
-<summary><b>Light theme & mobile</b></summary>
-
-<div align="center">
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/light-dashboard.png" alt="Light theme" /></td>
-<td width="50%"><img src="docs/images/mobile-dashboard.png" alt="Mobile layout" /></td>
-</tr>
-<tr>
-<td align="center"><b>Light theme</b> — follows the toggle in the top bar</td>
-<td align="center"><b>Responsive</b> — the sidebar collapses to a chip bar</td>
-</tr>
-</table>
-
-</div>
-
-</details>
+Project data, runs and generated files live in `OPENCREATOR_DATA_DIR` (default
+`.runtime/`), with an atomic JSON store — no database, no cloud, nothing leaves the machine.
 
 ---
 
@@ -183,31 +176,35 @@ flowchart LR
   subgraph runtime["Local runtime"]
     API["Daemon · node:http<br/>apps/daemon"]
     STORE[("JSON store<br/>.runtime/")]
+    GEN["Document generators<br/>youtube.ts"]
     PLAN["Offline planner"]
   end
 
-  subgraph providers["Optional providers"]
+  subgraph providers["Optional"]
     LLM["OpenAI-compatible API<br/>FreeLLMAPI · Ollama · hosted"]
-    MEDIA["ffmpeg · yt-dlp · whisper · TTS"]
   end
 
   UI -->|"/api"| API
   UI -->|"localStorage fallback"| PLAN
   API --> STORE
   API --> PLAN
+  API --> GEN
   API -->|"/chat/completions"| LLM
-  API -.-> MEDIA
 ```
 
 - **One contract, two clients.** `packages/shared` holds the types, the tool
   catalogue and a ready-made `CreatorClient` — the UI, a Codex skill, an MCP
   server or a CI job all speak the same API.
+- **Pure generators.** `apps/daemon/src/youtube.ts` builds every document from
+  your answers plus a seeded selector, so the same input always produces the
+  same output — reviewable, diffable, testable.
 - **Degrade, never break.** If the daemon is unreachable the studio keeps
   working from `localStorage` and the agent falls back to the offline planner.
-  If the model provider is unreachable, the daemon answers with the same
-  planner. If `ffmpeg` is missing, the tool still shows you the plan.
+  If the model provider is unreachable, the daemon answers with that same planner.
 - **Atomic persistence.** Every write goes to a temp file and is renamed into
   place, so a crash can never leave a half-written project file behind.
+- **Failures are explicit.** A run records the exact error, and the test suite
+  asserts that every tool writes every file it advertises.
 
 Read the full design notes in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -217,16 +214,16 @@ Read the full design notes in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Everything is optional — copy `.env.example` to `.env` when you want to change a default.
 
-| Variable                 | Default                    | Purpose                                        |
-| ------------------------ | -------------------------- | ---------------------------------------------- |
-| `PORT`                   | `9861`                     | Daemon port                                    |
-| `OPENCREATOR_HOST`       | `127.0.0.1`                | Daemon bind address                            |
-| `OPENCREATOR_DATA_DIR`   | `.runtime`                 | Where projects, runs and settings are stored   |
-| `OPENCREATOR_CORS`       | `*`                        | Allowed browser origins (comma separated)      |
-| `FREELLMAPI_BASE_URL`    | `http://localhost:3001/v1` | Default provider base URL                      |
-| `FREELLMAPI_API_KEY`     | —                          | Default provider key                           |
-| `OPENCREATOR_MODEL`      | `gpt-4o-mini`              | Agent model                                    |
-| `OPENCREATOR_FAST_MODEL` | `gpt-4o-mini`              | Model for cheap operations such as translation |
+| Variable                 | Default                    | Purpose                                       |
+| ------------------------ | -------------------------- | --------------------------------------------- |
+| `PORT`                   | `9861`                     | Daemon port                                   |
+| `OPENCREATOR_HOST`       | `127.0.0.1`                | Daemon bind address                           |
+| `OPENCREATOR_DATA_DIR`   | `.runtime`                 | Where projects, runs and artifacts are stored |
+| `OPENCREATOR_CORS`       | `*`                        | Allowed browser origins (comma separated)     |
+| `FREELLMAPI_BASE_URL`    | `http://localhost:3001/v1` | Default provider base URL (agent chat only)   |
+| `FREELLMAPI_API_KEY`     | —                          | Default provider key                          |
+| `OPENCREATOR_MODEL`      | `gpt-4o-mini`              | Agent model                                   |
+| `OPENCREATOR_FAST_MODEL` | `gpt-4o-mini`              | Model for cheap operations                    |
 
 ---
 
@@ -241,7 +238,10 @@ Everything is optional — copy `.env.example` to `.env` when you want to change
 | `npm start`          | Serve the built studio from the daemon (single port) |
 | `npm run typecheck`  | TypeScript across every workspace                    |
 | `npm run lint`       | ESLint                                               |
-| `npm test`           | Daemon test suite (`node --test`)                    |
+| `npm test`           | Daemon + web test suites (`node --test`)             |
+
+Typecheck covers `packages/shared` and `apps/web`; the daemon runs TypeScript
+directly under Node's type stripping, so `npm test` is its type gate.
 
 ---
 
@@ -250,14 +250,12 @@ Everything is optional — copy `.env.example` to `.env` when you want to change
 `skills/` holds Codex-style skill files — reusable instructions an agent can
 follow for a specific creator workflow.
 
-| Skill                 | What it does                                        |
-| --------------------- | --------------------------------------------------- |
-| `video-translation`   | Transcribe, translate and dub a video end to end    |
-| `subtitle-studio`     | Download, transcribe, translate and style subtitles |
-| `voiceover-dubbing`   | Synthesize and align a dubbed voice track           |
-| `thumbnail-generator` | Produce ranked thumbnail variations                 |
-| `short-script`        | Write a segmented, shoot-ready short script         |
-| `workflow-planner`    | Turn a goal into a sequenced, tool-aware plan       |
+| Skill               | What it does                                              |
+| ------------------- | --------------------------------------------------------- |
+| `channel-launch`    | Niche → blueprint → first ten videos, in one pass         |
+| `video-production`  | Keyword → script → shot list → captions → SEO → checklist |
+| `growth-loop`       | Analytics review, roadmap milestones and blog repurposing |
+| `article-repurpose` | Turn a finished video into a search-friendly article      |
 
 See [`docs/SKILLS.md`](docs/SKILLS.md) for how to use and write them.
 
@@ -265,7 +263,7 @@ See [`docs/SKILLS.md`](docs/SKILLS.md) for how to use and write them.
 
 ## Contributing
 
-Contributions are very welcome — from a typo fix to a whole new tool pipeline.
+Contributions are very welcome — from a typo fix to a whole new document generator.
 
 ```bash
 git clone https://github.com/meheditwc/open-creator-ai.git
@@ -277,7 +275,10 @@ npm run dev
 Then read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
 [`CODE_OF_CONDUCT`](CODE_OF_CONDUCT.md). If you are adding a tool, start from
 [`packages/shared/src/tools.ts`](packages/shared/src/tools.ts) — the catalogue is
-the single source of truth for the UI, the API and the docs.
+the single source of truth for the UI, the API and the docs — then add its
+generator to `apps/daemon/src/youtube.ts` and a case to
+`apps/daemon/src/worker.ts`. The test suite fails if a tool does not write every
+file it advertises.
 
 ---
 
@@ -288,7 +289,7 @@ just keep the notice.
 
 <div align="center">
 
-**If this helps you create faster, a star goes a long way.**
+**If this helps you publish faster, a star goes a long way.**
 
 [![Stars](https://img.shields.io/github/stars/meheditwc/open-creator-ai?style=social)](https://github.com/meheditwc/open-creator-ai/stargazers)
 [![Forks](https://img.shields.io/github/forks/meheditwc/open-creator-ai?style=social)](https://github.com/meheditwc/open-creator-ai/network/members)
