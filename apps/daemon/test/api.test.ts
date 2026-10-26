@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Daemon } from '../src/server.ts';
@@ -106,7 +106,11 @@ test('a run renders real files with ffmpeg', async (t) => {
     assert.ok(png, 'a PNG was rendered');
     assert.equal(png?.kind, 'image');
     assert.ok((png?.bytes ?? 0) > 5000, 'the PNG is not an empty file');
-    assert.equal(png?.url, `/api/artifacts/${run.id}/thumbnail-1-center.png`);
+    // Layouts rotate (lower → left → center) and the file is served by run id.
+    assert.match(
+      png?.url ?? '',
+      new RegExp(`^/api/artifacts/${run.id}/thumbnail-\\d-(lower|left|center)\\.png$`),
+    );
   });
 });
 
@@ -274,4 +278,120 @@ test('the reported version matches the package manifest', async () => {
   const { version } = loadConfig();
   assert.match(version, /^\d+\.\d+\.\d+/);
   assert.notEqual(version, '0.2.0');
+});
+
+/* -------------------------------------------------------------------------- */
+/* Image generation tiers                                                      */
+/* -------------------------------------------------------------------------- */
+
+test('images come from the provider, then the keyless service, then local art', async (t) => {
+  const ffmpeg = await resolveFfmpeg();
+  if (!ffmpeg.available) {
+    t.skip('ffmpeg is not installed on this machine');
+    return;
+  }
+
+  const { createServer } = await import('node:http');
+  const { readFile } = await import('node:fs/promises');
+  const { generateImage, proceduralArt } = await import('../src/imagegen.ts');
+
+  const fixtureDir = await mkdtemp(join(tmpdir(), 'open-creator-img-'));
+  const fixturePath = join(fixtureDir, 'fixture.png');
+  // A real image to serve as if it were generated.
+  await proceduralArt(ffmpeg.path!, {
+    prompt: 'fixture',
+    width: 640,
+    height: 360,
+    outPath: fixturePath,
+  });
+  const payload = await readFile(fixturePath);
+
+  const server = createServer((request, response) => {
+    if (request.url?.startsWith('/v1/images/generations') && request.method === 'POST') {
+      request.resume();
+      request.on('end', () => {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ data: [{ b64_json: payload.toString('base64') }] }));
+      });
+      return;
+    }
+    if (request.url?.startsWith('/prompt/')) {
+      response.writeHead(200, { 'content-type': 'image/png' });
+      response.end(payload);
+      return;
+    }
+    response.writeHead(404).end();
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+  const address = server.address();
+  const base = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`;
+
+  const previousEndpoint = process.env.OPENCREATOR_IMAGE_URL;
+  process.env.OPENCREATOR_IMAGE_URL = `${base}/prompt`;
+
+  const emptySettings = {
+    llm: { baseUrl: '', apiKey: '', model: '', fastModel: '', imageModel: '' },
+    dataDir: fixtureDir,
+    useFreeRouter: true,
+    autosave: true,
+    keylessImages: true,
+  };
+
+  try {
+    // 1. No image model → the keyless service is used.
+    const keyless = await generateImage({
+      settings: emptySettings,
+      ffmpegPath: ffmpeg.path!,
+      request: {
+        prompt: 'a neon studio',
+        width: 640,
+        height: 360,
+        outPath: join(fixtureDir, 'a.png'),
+      },
+    });
+    assert.equal(keyless.source, 'keyless');
+
+    // 2. An image model is configured → the provider wins.
+    const provider = await generateImage({
+      settings: {
+        ...emptySettings,
+        llm: {
+          baseUrl: `${base}/v1`,
+          apiKey: 'test-key',
+          model: 'm',
+          fastModel: 'm',
+          imageModel: 'image-model-1',
+        },
+      },
+      ffmpegPath: ffmpeg.path!,
+      request: {
+        prompt: 'a neon studio',
+        width: 640,
+        height: 360,
+        outPath: join(fixtureDir, 'b.png'),
+      },
+    });
+    assert.equal(provider.source, 'provider');
+    assert.equal(provider.model, 'image-model-1');
+
+    // 3. Everything unavailable → procedural art is still written.
+    const local = await generateImage({
+      settings: { ...emptySettings, keylessImages: false },
+      ffmpegPath: ffmpeg.path!,
+      request: {
+        prompt: 'a neon studio',
+        width: 640,
+        height: 360,
+        outPath: join(fixtureDir, 'c.png'),
+      },
+    });
+    assert.equal(local.source, 'local');
+    const written = await readFile(local.path);
+    assert.ok(written.byteLength > 20_000, 'procedural art is a real image, not a blank frame');
+  } finally {
+    if (previousEndpoint === undefined) delete process.env.OPENCREATOR_IMAGE_URL;
+    else process.env.OPENCREATOR_IMAGE_URL = previousEndpoint;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await rm(fixtureDir, { recursive: true, force: true });
+  }
 });

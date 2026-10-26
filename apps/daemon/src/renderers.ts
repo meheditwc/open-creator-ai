@@ -2,6 +2,8 @@ import { writeFile } from 'node:fs/promises';
 import { TOOLS } from '@open-creator/shared';
 import { join } from 'node:path';
 import { ffmpeg } from './media.ts';
+import type { ImageResult, ImageSource } from './imagegen.ts';
+import type { AppSettings } from '@open-creator/shared';
 import {
   type Cue,
   type ShortScript,
@@ -38,6 +40,19 @@ export interface ProducedFile {
 
 export interface RenderContext {
   ffmpegPath: string;
+  /** Current settings (provider + keyless image preference). */
+  settings: AppSettings;
+  /** Generate one image for a prompt and report which tier produced it. */
+  makeImage: (options: {
+    prompt: string;
+    width: number;
+    height: number;
+    out: string;
+    style?: string;
+    palette?: { from: string; to: string; accent: string };
+  }) => Promise<ImageResult>;
+  /** Tiers that were unavailable, for the run notes. */
+  imageNotes: string[];
   /** Directory that becomes `/api/artifacts/<runId>/`. */
   workDir: string;
   /** Report progress (0–100) and the current stage. */
@@ -300,6 +315,45 @@ async function renderPoster(
   );
 }
 
+/**
+ * Draw ASS text on top of an existing image (AI art) instead of a gradient.
+ * A soft scrim goes in first so white type stays readable on any photo.
+ */
+async function overlayOnImage(
+  ctx: RenderContext,
+  options: {
+    imagePath: string;
+    out: string;
+    ass: { name: string; content: string };
+    scrim?: 'none' | 'bottom' | 'full';
+  },
+): Promise<void> {
+  await writeFile(join(ctx.workDir, options.ass.name), options.ass.content, 'utf8');
+  const filters: string[] = [];
+  if (options.scrim === 'bottom') {
+    filters.push('drawbox=x=0:y=ih*0.52:w=iw:h=ih*0.48:color=black@0.55:t=fill');
+  } else if (options.scrim === 'full') {
+    filters.push('drawbox=x=0:y=0:w=iw:h=ih:color=black@0.32:t=fill');
+  }
+  filters.push(`ass=${options.ass.name}`, 'format=rgb24');
+
+  await ffmpeg(
+    ctx.ffmpegPath,
+    [
+      '-i',
+      options.imagePath,
+      '-vf',
+      filters.join(','),
+      '-frames:v',
+      '1',
+      '-update',
+      '1',
+      options.out,
+    ],
+    { cwd: ctx.workDir },
+  );
+}
+
 async function renderClip(
   ctx: RenderContext,
   theme: Theme,
@@ -311,6 +365,7 @@ async function renderClip(
     ass: { name: string; content: string };
     extraFilters?: string[];
     audioFile?: string;
+    backdrop?: string;
   },
 ): Promise<void> {
   const { out, width, height, duration } = options;
@@ -323,22 +378,30 @@ async function renderClip(
     'format=yuv420p',
   ];
 
-  const inputs = [
-    '-f',
-    'lavfi',
-    '-i',
-    gradientSource(theme, width, height, duration),
+  // With a backdrop we take one still and slowly push in, which reads as motion.
+  const backdropFilters = options.backdrop
+    ? `scale=${width * 1.25}:${height * 1.25}:force_original_aspect_ratio=increase,` +
+      `crop=${width * 1.25}:${height * 1.25},` +
+      `zoompan=z='min(zoom+0.0006,1.18)':d=${Math.round(duration * 30)}:s=${width}x${height}:fps=30,` +
+      `format=rgb24`
+    : 'null';
+
+  const inputs = options.backdrop
+    ? ['-loop', '1', '-t', String(duration), '-i', options.backdrop]
+    : ['-f', 'lavfi', '-i', gradientSource(theme, width, height, duration)];
+
+  inputs.push(
     ...(options.audioFile
       ? ['-i', options.audioFile]
       : ['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo']),
-  ];
+  );
 
   await ffmpeg(
     ctx.ffmpegPath,
     [
       ...inputs,
       '-filter_complex',
-      `[0:v]${filters.join(',')}[v]`,
+      `[0:v]${backdropFilters},${filters.join(',')}[v]`,
       '-map',
       '[v]',
       '-map',
@@ -477,38 +540,6 @@ function posterCues(
   ];
 }
 
-async function makePoster(
-  ctx: RenderContext,
-  toolId: string,
-  copy: PosterCopy,
-  options: { out: string; width: number; height: number; style: 'center' | 'lower' | 'left' },
-): Promise<void> {
-  const theme = themeFor(toolId);
-  const styles = posterStyles(theme, options.width);
-  const cues = posterCues(options.style, copy, options.width, styles);
-  const doc = assDocument({
-    width: options.width,
-    height: options.height,
-    styles,
-    cues,
-  });
-
-  const barHeight = options.height;
-  const extraFilters = [
-    // Accent rail on the left edge, always on brand.
-    `drawbox=x=0:y=0:w=10:h=${barHeight}:color=${ff(theme.accent)}@0.95:t=fill`,
-    `drawbox=x=0:y=${barHeight - 8}:w=${options.width}:h=8:color=${ff(theme.accent)}@0.45:t=fill`,
-  ];
-
-  await renderPoster(ctx, theme, {
-    out: options.out,
-    width: options.width,
-    height: options.height,
-    ass: { name: `${options.out}.ass`, content: doc },
-    extraFilters,
-  });
-}
-
 /* -------------------------------------------------------------------------- */
 /* Video renderers                                                             */
 /* -------------------------------------------------------------------------- */
@@ -581,6 +612,8 @@ async function makeCaptionClip(
     title?: string;
     extraFilters?: string[];
     audioFile?: string;
+    /** A still image used as the moving backdrop (AI art or procedural). */
+    backdrop?: string;
   },
 ): Promise<void> {
   const theme = themeFor(toolId);
@@ -790,6 +823,12 @@ function clampDuration(input: RenderInput, fallback = 8): number {
   return Math.min(Math.max(requested, 3), 60);
 }
 
+function describeSource(source: ImageSource): string {
+  if (source === 'provider') return 'your image model';
+  if (source === 'keyless') return 'the keyless image service';
+  return 'procedural art (no image model reachable)';
+}
+
 function footerFor(toolName: string): string {
   const stamp = new Date().toISOString().slice(0, 10);
   return `${toolName} · Open Creator AI · ${stamp}`;
@@ -803,37 +842,61 @@ export const RENDERERS: Record<
     const topic = topicFrom(input.prompt, input.title);
     const { width, height } = resolveDims(input, '16:9');
     const variants = Math.min(Math.max(Number(input.variants) || 3, 1), 6);
-    const styles: ('center' | 'lower' | 'left')[] = ['center', 'lower', 'left'];
+    const layouts: ('center' | 'lower' | 'left')[] = ['lower', 'left', 'center'];
+    const styles = posterStyles(themeFor('thumbnail-generator'), width);
     const files: ProducedFile[] = [];
+    let source: ImageSource = 'local';
 
-    await ctx.report(20, `Writing ${variants} thumbnail layout(s)…`);
+    await ctx.report(10, 'Generating artwork…');
     for (let index = 0; index < variants; index += 1) {
-      const style = styles[index % styles.length];
-      const name = `thumbnail-${index + 1}-${style}.png`;
-      await makePoster(
-        ctx,
-        'thumbnail-generator',
+      const layout = layouts[index % layouts.length];
+      const artName = `art-${index + 1}.png`;
+      const image = await ctx.makeImage({
+        prompt: `${topic} — ${['cinematic scene', 'editorial photo', 'moody portrait lighting'][index % 3]}`,
+        width,
+        height,
+        out: artName,
+        style:
+          'cinematic still, shallow depth of field, dramatic lighting, rich colour, no text, no watermark',
+      });
+      source = image.source;
+
+      await ctx.report(15 + index * (60 / variants), `Composing headline ${index + 1}…`);
+      const name = `thumbnail-${index + 1}-${layout}.png`;
+      const cues = posterCues(
+        layout,
         { kicker: 'Thumbnail', title: topic, footer: footerFor('Thumbnail Generator') },
-        { out: name, width, height, style },
+        width,
+        styles,
       );
-      files.push({ name, kind: 'image', width, height, note: `${style} layout` });
-      await ctx.report(
-        20 + Math.round(((index + 1) / variants) * 65),
-        `Rendered ${index + 1}/${variants}`,
-      );
+      await overlayOnImage(ctx, {
+        imagePath: artName,
+        out: name,
+        ass: {
+          name: `${name}.ass`,
+          content: assDocument({ width, height, styles, cues }),
+        },
+        scrim: layout === 'center' ? 'full' : 'bottom',
+      });
+      files.push({
+        name,
+        kind: 'image',
+        width,
+        height,
+        note: `${layout} layout · art: ${image.source}`,
+      });
     }
 
     const log = [
-      `# Thumbnail prompt log`,
+      '# Thumbnail prompt log',
       '',
       `**Topic:** ${topic}`,
       `**Aspect:** ${input.aspect ?? '16:9'} (${width}×${height})`,
       `**Variants:** ${variants}`,
+      `**Art source:** ${describeSource(source)}`,
       '',
       '## Layouts',
       ...files.map((file, index) => `- ${index + 1}. \`${file.name}\` — ${file.note}`),
-      '',
-      '_Rendered locally with ffmpeg. Swap in an image model later for photo-real art; the layout and typography stay the same._',
       '',
     ].join('\n');
     await writeFile(join(ctx.workDir, 'prompt-log.md'), log, 'utf8');
@@ -842,40 +905,55 @@ export const RENDERERS: Record<
   },
 
   async 'image-generation'(input, ctx) {
+    const prompt = (input.prompt || input.title).trim();
     const topic = topicFrom(input.prompt, input.title);
-    await ctx.report(25, 'Composing the cover art…');
     const wide = DIMENSIONS['16:9'];
     const square = DIMENSIONS['1:1'];
 
-    await makePoster(
-      ctx,
-      'image-generation',
-      { kicker: 'Cover', title: topic, footer: footerFor('Image Generation') },
-      { out: 'cover-16x9.png', width: wide.width, height: wide.height, style: 'center' },
-    );
-    await ctx.report(65, 'Composing the square cut…');
-    await makePoster(
-      ctx,
-      'image-generation',
-      { kicker: 'Square', title: topic, footer: footerFor('Image Generation') },
-      { out: 'cover-1x1.png', width: square.width, height: square.height, style: 'lower' },
-    );
+    await ctx.report(15, 'Generating the cover art…');
+    const landscape = await ctx.makeImage({
+      prompt,
+      width: wide.width,
+      height: wide.height,
+      out: 'cover-16x9.png',
+    });
+
+    await ctx.report(60, 'Generating the square cut…');
+    const squareArt = await ctx.makeImage({
+      prompt,
+      width: square.width,
+      height: square.height,
+      out: 'cover-1x1.png',
+      style: 'centred composition, square crop, no text, no watermark',
+    });
 
     const log = [
       '# Image prompt log',
       '',
-      `**Prompt:** ${input.prompt || topic}`,
+      `**Prompt:** ${prompt}`,
+      `**Art source:** ${describeSource(landscape.source)}`,
       '',
       '| File | Size |',
       '| --- | --- |',
       `| cover-16x9.png | ${wide.width}×${wide.height} |`,
       `| cover-1x1.png | ${square.width}×${square.height} |`,
       '',
-      '_Generated by the local design engine (typographic cover art). Connect an image model in Settings for photo-real renders._',
+      squareArt.source !== landscape.source
+        ? `_The square cut fell back to \`${squareArt.source}\`._`
+        : '',
       '',
     ].join('\n');
     await writeFile(join(ctx.workDir, 'prompt-log.md'), log, 'utf8');
-    ctx.note('Cover art rendered locally — connect an image model for photo-real output.');
+
+    ctx.note(
+      landscape.source === 'provider'
+        ? `Art generated with ${landscape.model ?? 'your image model'}.`
+        : landscape.source === 'keyless'
+          ? 'Art generated by the keyless image service. Add an image model in Settings for a style you control.'
+          : 'Art rendered locally (no image model reachable). Add an image model in Settings for photo-real output.',
+    );
+
+    void topic;
     return [
       { name: 'cover-16x9.png', kind: 'image', width: wide.width, height: wide.height },
       { name: 'cover-1x1.png', kind: 'image', width: square.width, height: square.height },
@@ -889,7 +967,13 @@ export const RENDERERS: Record<
     const duration = clampDuration(input, 8);
     const script = buildScriptFor(topic, duration);
 
-    await ctx.report(20, 'Building the shot list…');
+    await ctx.report(15, 'Generating the backdrop…');
+    const backdrop = await ctx.makeImage({
+      prompt: `${topic} — establishing shot, cinematic`,
+      width,
+      height,
+      out: 'backdrop.png',
+    });
     await ctx.report(45, 'Rendering frames with ffmpeg…');
     await makeCaptionClip(ctx, 'video-generation', {
       out: 'clip.mp4',
@@ -899,6 +983,7 @@ export const RENDERERS: Record<
       cues: cuesFromScript(script),
       stage: 'Generated clip',
       title: topic,
+      backdrop: backdrop.path,
     });
     await ctx.report(85, 'Muxing audio…');
 
@@ -947,7 +1032,15 @@ export const RENDERERS: Record<
     ].join('\n');
     await writeFile(join(ctx.workDir, 'script.md'), markdown, 'utf8');
 
-    await ctx.report(55, 'Cutting the vertical teaser…');
+    await ctx.report(45, 'Generating the teaser backdrop…');
+    const backdrop = await ctx.makeImage({
+      prompt: `${topic} — vertical social video still`,
+      width,
+      height,
+      out: 'backdrop.png',
+    });
+
+    await ctx.report(60, 'Cutting the vertical teaser…');
     const cues = cuesFromScript(script);
     await makeCaptionClip(ctx, 'short-script', {
       out: 'teaser-vertical.mp4',
@@ -960,8 +1053,10 @@ export const RENDERERS: Record<
       })),
       stage: script.title,
       title: script.hook,
+      backdrop: backdrop.path,
     });
     await writeFile(join(ctx.workDir, 'script.srt'), toSrt(cues), 'utf8');
+    ctx.note(`Teaser backdrop: ${describeSource(backdrop.source)}.`);
 
     return [
       { name: 'script.md', kind: 'text' },

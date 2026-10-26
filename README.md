@@ -36,6 +36,7 @@ Most AI media tools are a chat box that throws a file at you. Open Creator AI is
 | **Works without a model**    | A built-in offline planner answers with a real pipeline plan, so the studio is useful before you configure anything. |
 | **Zero native dependencies** | `npm install` never compiles anything. The daemon is plain Node.js — it starts in milliseconds.                      |
 | **Renders real files**       | Runs produce downloadable PNG / MP4 / SRT / MD files in `apps/daemon/.runtime/artifacts/`, served by the daemon.     |
+| **Real pictures**            | Images come from your image model, then a keyless service, then procedural art — never a blank gradient.             |
 
 ---
 
@@ -129,7 +130,9 @@ Every tool is a documented pipeline with typed inputs, outputs and requirements.
 | **Video Downloader**       | video    | beta   | Real downloads; needs `yt-dlp` on the machine                            |
 
 **Everything in the `stable` rows runs on your machine with ffmpeg alone — no API key, no
-account, no cloud.** The `beta` rows produce the parts that do not need a model, and say
+account, no cloud.** Images are generated in three tiers: your own image model when one is
+configured, a keyless public image service when it is reachable, and procedural art
+otherwise — so a run always produces a picture, and the run notes tell you which tier ran. The `beta` rows produce the parts that do not need a model, and say
 exactly what is missing instead of pretending to succeed.
 
 See [`docs/TOOLS.md`](docs/TOOLS.md) for the full reference, and

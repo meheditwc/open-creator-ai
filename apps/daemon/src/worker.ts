@@ -3,6 +3,7 @@ import { extname, join } from 'node:path';
 import type { AppSettings, Artifact, Run } from '@open-creator/shared';
 import { getTool } from '@open-creator/shared';
 import { RENDERERS, type ProducedFile, type RenderContext } from './renderers.ts';
+import { type ImageResult, generateImage, proceduralArt } from './imagegen.ts';
 import { resolveFfmpeg, resolveOptional } from './media.ts';
 import { providerConfigured, synthesizeSpeech, translateText } from './provider.ts';
 import {
@@ -146,6 +147,8 @@ export async function executeRun(run: Run, deps: WorkerDeps): Promise<void> {
   await mkdir(workDir, { recursive: true });
 
   const notes: string[] = [];
+  // Declared outside the try: the catch block reports these too.
+  const imageNotes: string[] = [];
   const report = async (progress: number, message: string) => {
     await deps.updateRun(run.id, {
       status: 'running',
@@ -168,9 +171,42 @@ export async function executeRun(run: Run, deps: WorkerDeps): Promise<void> {
 
     const ctx: RenderContext = {
       ffmpegPath: ffmpegInfo.path ?? 'ffmpeg',
+      settings,
       workDir,
       report,
       note: (message) => notes.push(message),
+      imageNotes,
+      makeImage: async (request): Promise<ImageResult> => {
+        try {
+          const result = await generateImage({
+            settings,
+            ffmpegPath: ffmpegInfo.path ?? 'ffmpeg',
+            request: {
+              prompt: request.prompt,
+              width: request.width,
+              height: request.height,
+              outPath: join(workDir, request.out),
+              style: request.style,
+            },
+            onFallback: (source, reason) => {
+              imageNotes.push(`${source} image generation unavailable: ${reason}`);
+              logger.warn(`[image] ${source} unavailable: ${reason}`);
+            },
+          });
+          return result;
+        } catch (error) {
+          // Last resort: never fail a run because an image tier misbehaved.
+          const reason = error instanceof Error ? error.message : String(error);
+          imageNotes.push(`image generation failed (${reason}) — using procedural art`);
+          return proceduralArt(ffmpegInfo.path ?? 'ffmpeg', {
+            prompt: request.prompt,
+            width: request.width,
+            height: request.height,
+            outPath: join(workDir, request.out),
+            palette: request.palette,
+          });
+        }
+      },
     };
 
     const input = {
@@ -218,7 +254,7 @@ export async function executeRun(run: Run, deps: WorkerDeps): Promise<void> {
         .slice(0, 3)
         .join(', ')}`,
       artifacts,
-      notes,
+      notes: [...new Set([...notes, ...imageNotes])],
       updatedAt: new Date().toISOString(),
     });
     logger.success(`run ${run.id}: ${summary}`);
@@ -235,7 +271,7 @@ export async function executeRun(run: Run, deps: WorkerDeps): Promise<void> {
       progress: 100,
       message: 'The run failed — see the details below.',
       error: message,
-      notes,
+      notes: [...new Set([...notes, ...imageNotes])],
       updatedAt: new Date().toISOString(),
     });
   }

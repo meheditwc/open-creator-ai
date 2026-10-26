@@ -91,6 +91,8 @@ export interface Capabilities {
   ffmpeg: { available: boolean; version?: string; path?: string; error?: string };
   ytDlp: { available: boolean; version?: string; error?: string };
   provider: { configured: boolean; reachable: boolean; models: string[] };
+  /** Which image tier a run will use right now. */
+  images: { provider: boolean; keyless: boolean; effective: 'provider' | 'keyless' | 'local' };
   tools: Record<string, { ready: boolean; missing: string[]; note?: string }>;
 }
 
@@ -153,10 +155,17 @@ export interface LlmSettings {
   model: string;
   /** Model used for fast/cheap operations such as translation. */
   fastModel: string;
+  /** Image model for `/images/generations` (e.g. `gpt-image-1`, `flux-1.1-pro`). */
+  imageModel: string;
 }
 
 export interface AppSettings {
   llm: LlmSettings;
+  /**
+   * Use a keyless public image service when no image model is configured, so a
+   * fresh install still produces real AI art.
+   */
+  keylessImages: boolean;
   /** Where the daemon writes its workspace data. */
   dataDir: string;
   /** Enable the free local model router when reachable. */

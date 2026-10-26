@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Image generation is real image generation.** Every picture-producing tool now
+  goes through a three-tier pipeline (`apps/daemon/src/imagegen.ts`):
+  1. **your image model** — `/images/generations` on the configured base URL
+     (`gpt-image-1`, `flux-1.1-pro`, `sdxl`, …), set in Settings → _Image model_;
+  2. **a keyless image service** (Pollinations by default), so a fresh install
+     produces actual AI art with no account and no key;
+  3. **procedural art** — a seeded fractal/gradient/grain render by ffmpeg, used
+     when neither of the above is reachable. Never a flat rectangle with text.
+- Thumbnails are now **artwork + typographic layout** (lower / left / center),
+  video clips use generated stills with a slow push-in as the backdrop, and
+  `prompt-log.md` records which tier produced the art.
+- `capabilities` reports `images: { provider, keyless, effective }`, and the run
+  notes say which tier was used.
+- Settings gained **Image model** and a **keyless image service** toggle.
+
+### Fixed
+
+- The worker's failure path could leave a run stuck in `running` when the error
+  happened before the render context existed.
+- Image-tier fallbacks are logged (`[image] provider unavailable: …`) instead of
+  being swallowed.
+
+### Added
+
 - **Runs now render real files.** The daemon has a render worker that shells out to
   `ffmpeg` and writes deliverables into `<dataDir>/artifacts/<runId>/`:
   - Thumbnail Generator → 1–6 typographic PNG thumbnails in three layouts + a prompt log

@@ -16,6 +16,7 @@ import { JsonStore, SettingsStore, storePaths } from './store.ts';
 import { LlmClient } from './llm.ts';
 import { resolveFfmpeg, resolveOptional } from './media.ts';
 import { providerConfigured } from './provider.ts';
+import { imageCapability } from './imagegen.ts';
 import { RenderQueue, artifactsDir, executeRun, mimeFor } from './worker.ts';
 import { logger } from './logger.ts';
 import type { AppConfig } from './config.ts';
@@ -71,10 +72,12 @@ export class Daemon {
         apiKey: process.env.FREELLMAPI_API_KEY ?? '',
         model: process.env.OPENCREATOR_MODEL ?? 'gpt-4o-mini',
         fastModel: process.env.OPENCREATOR_FAST_MODEL ?? 'gpt-4o-mini',
+        imageModel: process.env.OPENCREATOR_IMAGE_MODEL ?? '',
       },
       dataDir: config.dataDir,
       useFreeRouter: true,
       autosave: true,
+      keylessImages: process.env.OPENCREATOR_KEYLESS_IMAGES !== '0',
     }));
     this.registerRoutes();
     this.ready = this.bootstrap();
@@ -318,6 +321,7 @@ export class Daemon {
       ffmpeg: ffmpegInfo,
       ytDlp,
       provider: { configured, reachable: probe.reachable, models: probe.models },
+      images: imageCapability(settings),
       tools,
     };
   }
