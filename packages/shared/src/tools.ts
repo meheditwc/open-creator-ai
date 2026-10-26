@@ -119,6 +119,36 @@ export const TOOLS: ToolDefinition[] = [
     deliverables: ['keywords.csv', 'keyword-plan.md'],
   },
   {
+    id: 'content-calendar',
+    name: '30-Day Content Calendar',
+    category: 'strategy',
+    status: 'stable',
+    summary:
+      'A month of uploads mapped out: titles, series, keywords, shorts cut from each long video and the publish days.',
+    icon: 'calendar',
+    accent: '#8b5cf6',
+    stage: 'plan',
+    pipeline: ['pillars', 'schedule', 'titles', 'shorts'],
+    fields: [
+      {
+        key: 'prompt',
+        label: 'Niche',
+        placeholder: 'e.g. cooking for one on a budget',
+        required: true,
+      },
+      {
+        key: 'length',
+        label: 'Uploads per week',
+        type: 'select',
+        options: ['1', '2', '3'],
+        defaultValue: '2',
+      },
+      AUDIENCE,
+      MARKET,
+    ],
+    deliverables: ['calendar-30-days.csv', 'calendar-plan.md'],
+  },
+  {
     id: 'video-script',
     name: 'Video Script',
     category: 'script',
@@ -292,36 +322,6 @@ export const TOOLS: ToolDefinition[] = [
       AUDIENCE,
     ],
     deliverables: ['upload-checklist.md', 'checklist.json'],
-  },
-  {
-    id: 'content-calendar',
-    name: '30-Day Content Calendar',
-    category: 'strategy',
-    status: 'stable',
-    summary:
-      'A month of uploads mapped out: titles, series, keywords, shorts cut from each long video and the publish days.',
-    icon: 'calendar',
-    accent: '#8b5cf6',
-    stage: 'plan',
-    pipeline: ['pillars', 'schedule', 'titles', 'shorts'],
-    fields: [
-      {
-        key: 'prompt',
-        label: 'Niche',
-        placeholder: 'e.g. cooking for one on a budget',
-        required: true,
-      },
-      {
-        key: 'length',
-        label: 'Uploads per week',
-        type: 'select',
-        options: ['1', '2', '3'],
-        defaultValue: '2',
-      },
-      AUDIENCE,
-      MARKET,
-    ],
-    deliverables: ['calendar-30-days.csv', 'calendar-plan.md'],
   },
   {
     id: 'channel-roadmap',

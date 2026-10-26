@@ -11,13 +11,13 @@ Source of truth: [`packages/shared/src/tools.ts`](../packages/shared/src/tools.t
 | Start the channel | **Niche Finder** (`niche-finder`)                | `niche-report.md`, `niches.csv`               |
 | Start the channel | **Channel Blueprint** (`channel-blueprint`)      | `channel-blueprint.md`, `channel-copy.json`   |
 | Plan              | **Keyword Research** (`keyword-research`)        | `keywords.csv`, `keyword-plan.md`             |
+| Plan              | **30-Day Content Calendar** (`content-calendar`) | `calendar-30-days.csv`, `calendar-plan.md`    |
 | Write             | **Video Script** (`video-script`)                | `script.md`, `shot-list.csv`, `captions.srt`  |
 | Write             | **Shorts Script** (`shorts-script`)              | `shorts-script.md`, `captions.srt`            |
 | Publish           | **YouTube SEO Pack** (`youtube-seo`)             | `seo-pack.md`, `metadata.json`                |
 | Publish           | **Thumbnail Brief** (`thumbnail-brief`)          | `thumbnail-brief.md`, `overlay-text.txt`      |
 | Publish           | **Captions & Chapters** (`captions`)             | `captions.srt`, `captions.vtt`, `chapters.md` |
 | Publish           | **Upload Checklist** (`upload-checklist`)        | `upload-checklist.md`, `checklist.json`       |
-| Plan              | **30-Day Content Calendar** (`content-calendar`) | `calendar-30-days.csv`, `calendar-plan.md`    |
 | Grow              | **Channel Roadmap** (`channel-roadmap`)          | `roadmap.md`                                  |
 | Grow              | **Blog & Community Post** (`article-writer`)     | `article.md`, `article.html`                  |
 
@@ -87,6 +87,28 @@ Turn one topic into keyword clusters: primary, long-tail, question, comparison a
 
 - `keywords.csv`
 - `keyword-plan.md`
+
+## 30-Day Content Calendar
+
+`content-calendar` · Plan · Strategy
+
+A month of uploads mapped out: titles, series, keywords, shorts cut from each long video and the publish days.
+
+**Fields**
+
+- Niche *
+- Uploads per week (1 / 2 / 3)
+- Audience
+- Language / market (English / Bangla / Hindi / Urdu / Spanish / Arabic / Portuguese / Indonesian)
+
+**Pipeline**
+
+`pillars` → `schedule` → `titles` → `shorts`
+
+**Deliverables**
+
+- `calendar-30-days.csv`
+- `calendar-plan.md`
 
 ## Video Script
 
@@ -217,28 +239,6 @@ The exact publish run: Studio settings, metadata, cards, end screen, subtitles, 
 
 - `upload-checklist.md`
 - `checklist.json`
-
-## 30-Day Content Calendar
-
-`content-calendar` · Plan · Strategy
-
-A month of uploads mapped out: titles, series, keywords, shorts cut from each long video and the publish days.
-
-**Fields**
-
-- Niche *
-- Uploads per week (1 / 2 / 3)
-- Audience
-- Language / market (English / Bangla / Hindi / Urdu / Spanish / Arabic / Portuguese / Indonesian)
-
-**Pipeline**
-
-`pillars` → `schedule` → `titles` → `shorts`
-
-**Deliverables**
-
-- `calendar-30-days.csv`
-- `calendar-plan.md`
 
 ## Channel Roadmap
 
