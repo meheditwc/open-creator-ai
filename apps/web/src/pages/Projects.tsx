@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import { useApp } from '../state/AppState.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
@@ -9,6 +9,29 @@ export function Projects(): JSX.Element {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Performance optimization: Precompute run statistics per project in a single O(runs)
+  // pass instead of running O(runs) filters per project inside projects.map() (O(projects * runs)).
+  // Also avoids recalculating on every keystroke when updating name/description form state.
+  const projectStatsMap = useMemo(() => {
+    const stats = new Map<string, { total: number; completed: number }>();
+    for (const run of runs) {
+      if (!run.projectId) continue;
+      const current = stats.get(run.projectId) ?? { total: 0, completed: 0 };
+      current.total += 1;
+      if (run.status === 'completed') {
+        current.completed += 1;
+      }
+      stats.set(run.projectId, current);
+    }
+    return stats;
+  }, [runs]);
+
+  // Performance optimization: Index projects by ID in a single O(projects) pass
+  // to provide O(1) project name lookups in the runs table instead of O(runs * projects) find() scans.
+  const projectMap = useMemo(() => {
+    return new Map(projects.map((project) => [project.id, project]));
+  }, [projects]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -81,15 +104,14 @@ export function Projects(): JSX.Element {
         ) : (
           <div className="project-grid">
             {projects.map((project) => {
-              const projectRuns = runs.filter((run) => run.projectId === project.id);
+              const stats = projectStatsMap.get(project.id) ?? { total: 0, completed: 0 };
               return (
                 <article key={project.id} className="card card--interactive">
                   <div className="project-card__head">
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="project-card__name">{project.name}</div>
                       <div className="faint" style={{ fontSize: 11.5 }}>
-                        {pluralize(projectRuns.length, 'run')} ·{' '}
-                        {projectRuns.filter((run) => run.status === 'completed').length} completed
+                        {pluralize(stats.total, 'run')} · {stats.completed} completed
                       </div>
                     </div>
                     <button
@@ -156,7 +178,7 @@ export function Projects(): JSX.Element {
               </thead>
               <tbody>
                 {runs.map((run) => {
-                  const project = projects.find((candidate) => candidate.id === run.projectId);
+                  const project = projectMap.get(run.projectId);
                   return (
                     <tr key={run.id}>
                       <td>
