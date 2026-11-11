@@ -1,14 +1,48 @@
-import { useState, type JSX } from 'react';
+import { useMemo, useState, type JSX } from 'react';
+import type { Project } from '@open-creator/shared';
 import { useApp } from '../state/AppState.tsx';
 import { Icon } from '../components/Icon.tsx';
 import { EmptyState } from '../components/EmptyState.tsx';
 import { pluralize, relativeTime } from '../lib/format.ts';
+
+interface ProjectRunStats {
+  total: number;
+  completed: number;
+}
 
 export function Projects(): JSX.Element {
   const { projects, runs, createProject, deleteProject, updateProject } = useApp();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Performance optimization (Bolt ⚡):
+  // Pre-index projects by ID in O(N) once, enabling O(1) lookups in the runs table
+  // instead of scanning the projects array on every row (reducing O(M * N) -> O(M + N)).
+  const projectMap = useMemo(() => {
+    const map = new Map<string, Project>();
+    for (const project of projects) {
+      map.set(project.id, project);
+    }
+    return map;
+  }, [projects]);
+
+  // Performance optimization (Bolt ⚡):
+  // Aggregate run counts per project in a single O(M) pass rather than running
+  // runs.filter(...) twice per project card in the render loop (reducing O(N * M) -> O(N + M)).
+  const runsStatsByProjectId = useMemo(() => {
+    const stats = new Map<string, ProjectRunStats>();
+    for (const run of runs) {
+      if (!run.projectId) continue;
+      const current = stats.get(run.projectId) ?? { total: 0, completed: 0 };
+      current.total += 1;
+      if (run.status === 'completed') {
+        current.completed += 1;
+      }
+      stats.set(run.projectId, current);
+    }
+    return stats;
+  }, [runs]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -81,15 +115,14 @@ export function Projects(): JSX.Element {
         ) : (
           <div className="project-grid">
             {projects.map((project) => {
-              const projectRuns = runs.filter((run) => run.projectId === project.id);
+              const stats = runsStatsByProjectId.get(project.id) ?? { total: 0, completed: 0 };
               return (
                 <article key={project.id} className="card card--interactive">
                   <div className="project-card__head">
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="project-card__name">{project.name}</div>
                       <div className="faint" style={{ fontSize: 11.5 }}>
-                        {pluralize(projectRuns.length, 'run')} ·{' '}
-                        {projectRuns.filter((run) => run.status === 'completed').length} completed
+                        {pluralize(stats.total, 'run')} · {stats.completed} completed
                       </div>
                     </div>
                     <button
@@ -156,7 +189,7 @@ export function Projects(): JSX.Element {
               </thead>
               <tbody>
                 {runs.map((run) => {
-                  const project = projects.find((candidate) => candidate.id === run.projectId);
+                  const project = projectMap.get(run.projectId);
                   return (
                     <tr key={run.id}>
                       <td>
